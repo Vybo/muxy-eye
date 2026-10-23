@@ -95,18 +95,7 @@ public struct HookInstaller: Sendable {
             try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: destination.path)
             return
         }
-        let temp = destination.deletingLastPathComponent()
-            .appendingPathComponent(".muxy-eye-hook-\(UUID().uuidString).tmp")
-        try data.write(to: temp)
-        do {
-            try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: temp.path)
-            if rename(temp.path, destination.path) != 0 {
-                throw CocoaError(.fileWriteUnknown)
-            }
-        } catch {
-            try? fileManager.removeItem(at: temp)
-            throw error
-        }
+        try writeFile(data, to: destination, mode: 0o755)
     }
 
     // MARK: - Private
@@ -160,6 +149,11 @@ public struct HookInstaller: Sendable {
         )
         let directory = settingsURL.deletingLastPathComponent()
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        let target = settingsURL.resolvingSymlinksInPath()
+        // settings.json can hold secrets, so the backup and the new file get the original's mode
+        // from the moment they exist.
+        let existingMode = ((try? fileManager.attributesOfItem(atPath: target.path))?[.posixPermissions] as? Int)
+            .map { mode_t($0) & 0o777 }
         if let original {
             let formatter = DateFormatter()
             formatter.locale = Locale(identifier: "en_US_POSIX")
@@ -168,14 +162,40 @@ public struct HookInstaller: Sendable {
             let backup = directory.appendingPathComponent(
                 "\(settingsURL.lastPathComponent).muxy-eye-backup-\(formatter.string(from: now()))"
             )
-            try original.data.write(to: backup)
+            try Self.writeFile(original.data, to: backup, mode: existingMode ?? 0o600)
         }
-        let target = settingsURL.resolvingSymlinksInPath()
-        let mode = (try? fileManager.attributesOfItem(atPath: target.path))?[.posixPermissions] as? Int
-        try output.write(to: target, options: .atomic)
-        if let mode {
-            try fileManager.setAttributes([.posixPermissions: mode], ofItemAtPath: target.path)
+        try Self.writeFile(output, to: target, mode: existingMode ?? 0o644)
+    }
+
+    /// Writes through a temporary file in the destination's directory that has `mode` before any
+    /// data is written, then renames it over the destination.
+    private static func writeFile(_ data: Data, to destination: URL, mode: mode_t) throws {
+        let temp = destination.deletingLastPathComponent()
+            .appendingPathComponent(".\(destination.lastPathComponent).\(UUID().uuidString).tmp")
+        let fd = open(temp.path, O_CREAT | O_EXCL | O_WRONLY | O_CLOEXEC, 0o600)
+        guard fd >= 0 else { throw posixError() }
+        do {
+            if fchmod(fd, mode) != 0 {
+                let error = posixError()
+                close(fd)
+                throw error
+            }
+            do {
+                try FileHandle(fileDescriptor: fd, closeOnDealloc: false).write(contentsOf: data)
+            } catch {
+                close(fd)
+                throw error
+            }
+            if close(fd) != 0 { throw posixError() }
+            if rename(temp.path, destination.path) != 0 { throw posixError() }
+        } catch {
+            unlink(temp.path)
+            throw error
         }
+    }
+
+    private static func posixError() -> POSIXError {
+        POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
     }
 
     private static func isOurs(_ hook: Any) -> Bool {

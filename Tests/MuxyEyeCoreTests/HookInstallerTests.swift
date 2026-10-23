@@ -226,6 +226,41 @@ import Testing
         #expect(try sut.status() == .installed)
     }
 
+    private func mode(_ url: URL) throws -> Int {
+        try #require(FileManager.default.attributesOfItem(atPath: url.path)[.posixPermissions] as? Int)
+    }
+
+    @Test(arguments: [0o600, 0o640, 0o644])
+    func backupAndSettingsKeepOriginalMode(original: Int) throws {
+        let dir = try makeDir()
+        try writeSettings(dir, #"{"env":{"API_KEY":"secret"}}"#)
+        try FileManager.default.setAttributes([.posixPermissions: original], ofItemAtPath: settingsURL(dir).path)
+        let sut = installer(dir)
+        try sut.install()
+        let found = try #require(try backups(dir).first)
+        #expect(try mode(found) == original)
+        #expect(try mode(settingsURL(dir)) == original)
+        try sut.uninstall()
+        #expect(try backups(dir).allSatisfy { try mode($0) == original })
+        #expect(try mode(settingsURL(dir)) == original)
+    }
+
+    @Test func writesLeaveNoTemporaryFiles() throws {
+        let dir = try makeDir()
+        try writeSettings(dir, "{}")
+        let sut = installer(dir, now: { Date(timeIntervalSince1970: 1_800_000_000) })
+        try sut.install()
+        try sut.uninstall()
+        let names = try FileManager.default.contentsOfDirectory(atPath: settingsURL(dir).deletingLastPathComponent().path)
+        #expect(names.filter { $0 != "settings.json" && !$0.hasPrefix("settings.json.muxy-eye-backup-") }.isEmpty)
+    }
+
+    @Test func newSettingsFileGetsDefaultMode() throws {
+        let dir = try makeDir()
+        try installer(dir).install()
+        #expect(try mode(settingsURL(dir)) == 0o644)
+    }
+
     @Test func legacyLookalikeHookIsLeftAlone() throws {
         let dir = try makeDir()
         let command = "'/Users/u/Library/Application Support/Muxy/hooks/muxy-claude-hook.sh' permission-request # muxy-notification-hook"
