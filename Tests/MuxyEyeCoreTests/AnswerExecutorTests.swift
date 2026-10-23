@@ -194,4 +194,38 @@ import Testing
         let outcome = await makeExecutor(muxy, timeout: .milliseconds(300)).perform(.option(1), pending: try pending("permission-request-bash"), session: session)
         #expect(outcome == .notConfirmed)
     }
+
+    // MARK: Answers go to the prompt the user saw
+
+    /// Two single-select questions with the same options; the screen shows the second.
+    func colorTwiceWithSecondOnScreen() throws -> (pending: PendingItem, screen: String) {
+        guard case .question(let request) = try pending("pre-tool-use-question-single").kind,
+              let first = request.questions.first
+        else { throw Fixture.FixtureError.missing("question") }
+        let second = Question(question: "Which color for the logo?", header: "Logo", options: first.options, multiSelect: false)
+        let screen = try Fixture.text("screens/question-single.txt")
+            .replacingOccurrences(of: "Which color do you prefer?", with: "Which color for the logo?")
+        return (PendingItem(kind: .question(QuestionRequest(questions: [first, second])), receivedAt: .now, sawBlocked: true), screen)
+    }
+
+    @Test func answerNarrowedToTheShownQuestionSendsNothingWhenAnotherIsOnScreen() async throws {
+        let (full, screen) = try colorTwiceWithSecondOnScreen()
+        let shown = try #require(full.narrowed(toQuestion: "Which color do you prefer?"))
+        #expect(AnswerPlanner.matches(full, screen: ScreenParser.parse(screen), idlePrompt: false))
+        let muxy = FakeMuxy()
+        await muxy.setScreens([screen])
+        await muxy.setActivity([snapshot(.blocked)])
+        let outcome = await makeExecutor(muxy).perform(.option(2), pending: shown, session: session)
+        #expect(outcome == .promptChanged)
+        #expect(await sends(muxy).isEmpty)
+    }
+
+    @Test func multiSelectReviewWhileStillBlockedIsNotConfirmed() async throws {
+        let muxy = FakeMuxy()
+        await muxy.setScreens([try Fixture.text("screens/question-multi.txt"), try Fixture.text("screens/question-submit-review.txt")])
+        await muxy.setActivity([snapshot(.blocked)])
+        let outcome = await makeExecutor(muxy, timeout: .milliseconds(300)).perform(.multiSelect([1]), pending: try pending("pre-tool-use-question-multi"), session: session)
+        #expect(outcome == .notConfirmed)
+        #expect(await sends(muxy) == ["send:s1:1", "send:s1:\u{1B}[C", "send:s1:1"])
+    }
 }

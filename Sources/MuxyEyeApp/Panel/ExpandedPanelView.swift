@@ -130,7 +130,7 @@ private struct SessionDetailView: View {
                 case .question(let request):
                     QuestionDetailView(model: model, session: record.id, request: request, pending: pending, screen: screen)
                 case .finished(let message):
-                    FinishedDetailView(model: model, session: record.id, message: message)
+                    FinishedDetailView(model: model, session: record.id, pending: pending, message: message)
                 }
             }
             .id(pending.receivedAt)

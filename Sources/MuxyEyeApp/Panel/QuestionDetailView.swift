@@ -53,13 +53,13 @@ struct QuestionDetailView: View {
                     isDefault: index == 0,
                     disabled: busy
                 ) {
-                    send(.option(index + 1))
+                    send(.option(index + 1), to: question)
                 }
             }
         }
         if AnswerPlanner.freeTextOption(on: screen) != nil {
             AnswerField(placeholder: "Type something else…", text: $freeText, disabled: busy) {
-                send(.freeText(freeText))
+                send(.freeText(freeText), to: question)
             }
         }
     }
@@ -82,7 +82,7 @@ struct QuestionDetailView: View {
         HStack {
             Spacer()
             PanelButton(title: "Submit", disabled: selection.isEmpty || busy) {
-                send(.multiSelect(selection))
+                send(.multiSelect(selection), to: question)
             }
         }
     }
@@ -109,12 +109,12 @@ struct QuestionDetailView: View {
         switch key {
         case .digit(let number):
             guard number >= 1, number <= count else { return }
-            if isMultiSelect { toggle(number) } else { send(.option(number)) }
+            if isMultiSelect { toggle(number) } else { send(.option(number), to: question) }
         case .primary:
             if isMultiSelect {
-                if !selection.isEmpty { send(.multiSelect(selection)) }
+                if !selection.isEmpty { send(.multiSelect(selection), to: question) }
             } else if count > 0 {
-                send(.option(1))
+                send(.option(1), to: question)
             }
         }
     }
@@ -123,9 +123,10 @@ struct QuestionDetailView: View {
         if selection.contains(number) { selection.remove(number) } else { selection.insert(number) }
     }
 
-    private func send(_ answer: UserAnswer) {
+    /// Sends an answer bound to the question shown, so it can't land on another question of the request.
+    private func send(_ answer: UserAnswer, to question: Question) {
         Task {
-            await model.answer(answer, for: session)
+            await model.answer(answer, to: pending, question: question.question, for: session)
             if model.lastOutcome[session] == .delivered { freeText = "" }
         }
     }

@@ -13,7 +13,7 @@ struct SessionRailView: View {
                 VStack(spacing: 2) {
                     ForEach(state.rail) { record in
                         Button {
-                            model.selectedSession = record.id
+                            model.select(record.id)
                         } label: {
                             SessionRailRow(
                                 name: SessionPresentation.displayName(for: record),

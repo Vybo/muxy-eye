@@ -7,6 +7,7 @@ struct FinishedDetailView: View {
 
     let model: AppModel
     let session: MuxySessionID
+    let pending: PendingItem
     let message: String?
 
     @State private var reply = ""
@@ -20,7 +21,7 @@ struct FinishedDetailView: View {
                     send(.reply(reply))
                 }
                 PanelButton(title: "Dismiss") {
-                    model.dismiss(session)
+                    model.dismiss(pending, for: session)
                 }
             }
         }
@@ -28,7 +29,7 @@ struct FinishedDetailView: View {
 
     private func send(_ answer: UserAnswer) {
         Task {
-            await model.answer(answer, for: session)
+            await model.answer(answer, to: pending, for: session)
             if model.lastOutcome[session] == .delivered { reply = "" }
         }
     }

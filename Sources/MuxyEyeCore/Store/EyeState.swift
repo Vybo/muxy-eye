@@ -18,6 +18,22 @@ public struct PendingItem: Sendable, Equatable {
     }
 }
 
+extension PendingItem {
+    /// The same prompt: same content and arrival. Whether Muxy has seen the session blocked yet doesn't matter.
+    public func isSamePrompt(as other: PendingItem) -> Bool {
+        kind == other.kind && receivedAt == other.receivedAt
+    }
+
+    /// The item reduced to the one question the user was shown, so an answer can't land on another
+    /// question of the same request. Nil when the item isn't a question or doesn't contain that question.
+    public func narrowed(toQuestion text: String) -> PendingItem? {
+        guard case .question(let request) = kind,
+              let question = request.questions.first(where: { $0.question == text })
+        else { return nil }
+        return PendingItem(kind: .question(QuestionRequest(questions: [question])), receivedAt: receivedAt, sawBlocked: sawBlocked)
+    }
+}
+
 public struct SessionRecord: Sendable, Equatable, Identifiable {
     public var id: MuxySessionID
     public var provider: String

@@ -78,13 +78,17 @@ public actor AnswerExecutor {
             }
         }
 
-        return try await confirm(answer, answeredQuestion: answeredQuestion(pending, on: prompt), session: session)
+        return try await confirm(answer, answeredQuestion: answeredQuestion(pending, on: prompt, steps: steps), session: session)
             ? .delivered : .notConfirmed
     }
 
-    /// The question text an answer went to, when the pending item is a question.
-    private func answeredQuestion(_ pending: PendingItem, on prompt: ScreenPrompt?) -> String? {
-        guard case .question = pending.kind, case .question(_, let text, _, _)? = prompt else { return nil }
+    /// The question text an answer went to, when the pending item is a question. Nil when the answer
+    /// itself passes through the review screen (multi-select), so seeing the review proves nothing.
+    private func answeredQuestion(_ pending: PendingItem, on prompt: ScreenPrompt?, steps: [AnswerStep]) -> String? {
+        guard case .question = pending.kind,
+              case .question(_, let text, _, _)? = prompt,
+              !steps.contains(.expectSubmitReview)
+        else { return nil }
         return text
     }
 

@@ -74,7 +74,7 @@ struct PermissionDetailView: View {
 
     private func send(_ answer: UserAnswer) {
         Task {
-            await model.answer(answer, for: session)
+            await model.answer(answer, to: pending, for: session)
             if model.lastOutcome[session] == .delivered { feedback = "" }
         }
     }

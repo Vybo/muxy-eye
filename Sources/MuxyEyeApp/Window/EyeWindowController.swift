@@ -26,7 +26,7 @@ final class EyeWindowController: EyePresenting {
     }
 
     func show() {
-        observeScreens()
+        observeNotifications()
         observeModel()
         updateFrame()
         panel.orderFrontRegardless()
@@ -119,10 +119,17 @@ final class EyeWindowController: EyePresenting {
         }
     }
 
-    private func observeScreens() {
+    private func observeNotifications() {
         let relayout: @Sendable (Notification) -> Void = { [weak self] _ in
             MainActor.assumeIsolated { self?.updateFrame() }
         }
+        observers.append(NotificationCenter.default.addObserver(
+            forName: NSWindow.didBecomeKeyNotification,
+            object: panel,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.model.panelBecameKey() }
+        })
         observers.append(NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil,

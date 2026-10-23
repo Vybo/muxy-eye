@@ -132,6 +132,22 @@ final class AppModel {
         }
     }
 
+    /// Selects a rail row and reads its screen again, so its options reflect the terminal now.
+    func select(_ session: MuxySessionID) {
+        selectedSession = session
+        refreshSelectedScreen()
+    }
+
+    /// The panel just became the key window: the selected prompt may have changed while it wasn't.
+    func panelBecameKey() {
+        refreshSelectedScreen()
+    }
+
+    private func refreshSelectedScreen() {
+        guard expanded, let id = selectedSession, let record = state.sessions[id], state.isWaiting(record) else { return }
+        Task { await loadScreen(id) }
+    }
+
     func moveSelection(by offset: Int) {
         let rail = state.rail
         guard !rail.isEmpty else { return }
@@ -153,10 +169,12 @@ final class AppModel {
 
     // MARK: Session actions
 
-    func answer(_ answer: UserAnswer, for session: MuxySessionID) async {
+    /// Answers the prompt the user was shown. `displayed` is the pending item the view rendered and
+    /// `question` the question text it showed; when the session's prompt has changed since, nothing is sent.
+    func answer(_ answer: UserAnswer, to displayed: PendingItem, question: String? = nil, for session: MuxySessionID) async {
         guard let answer = answer.sanitized, !answering.contains(session) else { return }
         guard let executor, let muxy else {
-            lastOutcome[session] = .failed("Muxy not found")
+            record(.failed("Muxy not found"), for: session)
             return
         }
         answering.insert(session)
@@ -164,18 +182,29 @@ final class AppModel {
         lastOutcome[session] = nil
 
         guard await muxy.serverStatus() == .running else {
-            lastOutcome[session] = .failed(Self.muxyNotRunningReason)
+            record(.failed(Self.muxyNotRunningReason), for: session)
             return
         }
-        guard let pending = state.sessions[session]?.pending else {
-            lastOutcome[session] = .promptChanged
+        guard let pending = state.sessions[session]?.pending, pending.isSamePrompt(as: displayed) else {
+            record(.promptChanged, for: session)
+            await loadScreen(session)
             return
         }
-        let outcome = await executor.perform(answer, pending: pending, session: session)
-        lastOutcome[session] = outcome
+        var target = pending
+        if let question {
+            guard let narrowed = pending.narrowed(toQuestion: question) else {
+                record(.promptChanged, for: session)
+                return
+            }
+            target = narrowed
+        }
+        let outcome = await executor.perform(answer, pending: target, session: session)
+        record(outcome, for: session)
         if outcome == .delivered {
             if await showsNextQuestion(of: pending, session: session) { return }
-            handle(apply([.answered(session, at: .now)]))
+            if state.sessions[session]?.pending?.isSamePrompt(as: displayed) == true {
+                handle(apply([.answered(session, at: .now)]))
+            }
             wake()
         } else {
             if case .failed(let reason) = outcome {
@@ -183,6 +212,11 @@ final class AppModel {
             }
             await loadScreen(session)
         }
+    }
+
+    /// Outcomes are feedback for the open panel; one that arrives after it collapsed is dropped.
+    private func record(_ outcome: AnswerOutcome, for session: MuxySessionID) {
+        lastOutcome[session] = expanded ? outcome : nil
     }
 
     /// After one of several questions is answered, Claude shows the next one. The pending item stays,
@@ -194,7 +228,9 @@ final class AppModel {
         return request.current(on: ScreenParser.parse(screen.text)) != nil
     }
 
-    func dismiss(_ session: MuxySessionID) {
+    /// Dismisses the item the user was shown, never one that replaced it in the meantime.
+    func dismiss(_ displayed: PendingItem, for session: MuxySessionID) {
+        guard state.sessions[session]?.pending?.isSamePrompt(as: displayed) == true else { return }
         handle(apply([.dismiss(session, at: .now)]))
     }
 
@@ -354,7 +390,7 @@ final class AppModel {
         reconcileSelection(previouslyWaiting: Set(before.sessions.values.filter(before.isWaiting).map(\.id)))
         if state.waitingCount > 0 {
             cancelPendingCollapse()
-        } else if before.waitingCount > 0, expanded {
+        } else if before.waitingCount > 0, expanded, !selectedShowsBanner {
             scheduleCollapse()
         }
         return effects
@@ -400,8 +436,7 @@ final class AppModel {
                 continue
             }
             guard let pending = record.pending else { continue }
-            let old = before.sessions[id]?.pending
-            if old?.kind != pending.kind || old?.receivedAt != pending.receivedAt {
+            if before.sessions[id]?.pending?.isSamePrompt(as: pending) != true {
                 lastOutcome[id] = nil
             }
         }
@@ -432,8 +467,15 @@ final class AppModel {
             } catch {
                 return
             }
-            self?.collapse()
+            // An outcome banner on the selected session holds the panel open so it can be read.
+            guard let self, !self.selectedShowsBanner else { return }
+            self.collapse()
         }
+    }
+
+    private var selectedShowsBanner: Bool {
+        guard let id = selectedSession else { return false }
+        return AnswerBanner.message(for: lastOutcome[id]) != nil
     }
 
     private func cancelPendingCollapse() {
