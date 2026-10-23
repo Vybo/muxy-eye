@@ -3,37 +3,50 @@ import Testing
 @testable import MuxyEyeCore
 
 @Suite struct MuxyCLITests {
+    /// One fake `muxy` for the whole suite, kept between runs. Every freshly written executable is
+    /// scanned by the system on its first launch, which takes long enough to time out parallel tests
+    /// when each writes its own. Per-test behaviour comes in through `MUXY_EXTRA`, which the script evaluates.
+    private static let fakeMuxy: Result<URL, any Error> = Result {
+        let script = """
+        #!/bin/sh
+        for a in "$@"; do printf '%s\\n' "$a" >> "$MUXY_LOG"; done
+        echo "@@END@@" >> "$MUXY_LOG"
+        if [ -n "$MUXY_EXTRA" ]; then eval "$MUXY_EXTRA"; fi
+        case "$1 $2" in
+        "activity list") cat "$FIXTURES/activity.json";;
+        "session list") cat "$FIXTURES/session-list.json";;
+        "project list") cat "$FIXTURES/project-list.json";;
+        "server status") cat "$FIXTURES/server-status-running.json";;
+        "session send") echo ok;;
+        "session send-keys") echo ok;;
+        "activity ack") echo ok;;
+        esac
+        """
+        let data = Data(script.utf8)
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("MuxyCLITests-fake-muxy", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let exe = dir.appendingPathComponent("muxy")
+        if (try? Data(contentsOf: exe)) == data, FileManager.default.isExecutableFile(atPath: exe.path) { return exe }
+        let temp = dir.appendingPathComponent("muxy-\(UUID().uuidString).tmp")
+        try data.write(to: temp)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: temp.path)
+        guard rename(temp.path, exe.path) == 0 else { throw CocoaError(.fileWriteUnknown) }
+        return exe
+    }
+
     private struct Harness {
         let dir: URL
         let log: URL
         let cli: MuxyCLI
 
-        init(extra: String = "", timeout: Duration = .seconds(5)) throws {
+        init(extra: String = "", timeout: Duration = .seconds(30)) throws {
             dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             log = dir.appendingPathComponent("args.log")
             let fixtures = try #require(Bundle.module.resourceURL).appendingPathComponent("Fixtures/muxy").path
-            let script = """
-            #!/bin/sh
-            for a in "$@"; do printf '%s\\n' "$a" >> "$MUXY_LOG"; done
-            echo "@@END@@" >> "$MUXY_LOG"
-            \(extra)
-            case "$1 $2" in
-            "activity list") cat "$FIXTURES/activity.json";;
-            "session list") cat "$FIXTURES/session-list.json";;
-            "project list") cat "$FIXTURES/project-list.json";;
-            "server status") cat "$FIXTURES/server-status-running.json";;
-            "session send") echo ok;;
-            "session send-keys") echo ok;;
-            "activity ack") echo ok;;
-            esac
-            """
-            let exe = dir.appendingPathComponent("muxy")
-            try script.write(to: exe, atomically: true, encoding: .utf8)
-            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: exe.path)
             cli = MuxyCLI(
-                executable: exe,
-                environment: ["MUXY_LOG": log.path, "FIXTURES": fixtures, "PATH": "/usr/bin:/bin"],
+                executable: try MuxyCLITests.fakeMuxy.get(),
+                environment: ["MUXY_LOG": log.path, "MUXY_EXTRA": extra, "FIXTURES": fixtures, "PATH": "/usr/bin:/bin"],
                 timeout: timeout
             )
         }
