@@ -23,6 +23,9 @@ These checks cover what the unit tests can't: the window, focus, displays, and t
 - [ ] **Working:** while a Claude session works, a white wave scrolls across, with a fainter cyan wave behind it.
 - [ ] **Waiting:**
   - [ ] the line becomes the pulsing orange ring within about 1 s of an approval appearing;
+  - [ ] the pulse doesn't jump when the ring has finished forming, and the ring turns back into the wave smoothly;
+  - [ ] about 0% CPU in Activity Monitor while the ring pulses, once it has formed;
+  - [ ] clicking the pulsing ring opens the panel;
   - [ ] after you answer it in the terminal, the wave returns within about 2 s;
   - [ ] after a turn finishes, the ring comes back for the finished turn. It clears once you look at that pane in Muxy.
 - [ ] **Notch display (MacBook):**
