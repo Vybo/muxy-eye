@@ -16,6 +16,7 @@ final class EyeWindowController: EyePresenting {
     private let events = PanelEventMonitor()
     private var expandedHeight = initialExpandedHeight
     private var observers: [NSObjectProtocol] = []
+    private var hiddenTask: Task<Void, Never>?
 
     init(model: AppModel, settings: AppSettings) {
         self.model = model
@@ -32,12 +33,26 @@ final class EyeWindowController: EyePresenting {
         panel.orderFrontRegardless()
     }
 
+    /// Orders the panel out and brings it back after `duration`. The model keeps polling meanwhile.
+    func hide(for duration: Duration) {
+        hiddenTask?.cancel()
+        events.stop()
+        panel.orderOut(nil)
+        hiddenTask = Task { [weak self] in
+            do { try await Task.sleep(for: duration) } catch { return }
+            self?.hiddenTask = nil
+            self?.updateFrame()
+            self?.panel.orderFrontRegardless()
+        }
+    }
+
     // MARK: EyePresenting
 
     func present(expanded: Bool, focus: Bool) {
         let wasKey = panel.isKeyWindow
         panel.isExpanded = expanded
         updateFrame()
+        if hiddenTask != nil { return }
         if expanded {
             startEventMonitor()
             panel.orderFrontRegardless()

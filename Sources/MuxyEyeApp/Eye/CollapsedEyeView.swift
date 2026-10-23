@@ -46,6 +46,12 @@ struct CollapsedEyeView: View {
         }
         .frame(width: size.width, height: size.height)
         .onTapGesture { model.expand(focus: true) }
+        .contextMenu {
+            Button("Settings…") { model.openSettings() }
+            Button("Hide for 1 Hour") { model.hidePanel(for: .seconds(3600)) }
+            Divider()
+            Button("Quit Muxy Eye") { NSApp.terminate(nil) }
+        }
     }
 }
 

@@ -7,6 +7,7 @@ import os
 @MainActor
 protocol EyePresenting: AnyObject {
     func present(expanded: Bool, focus: Bool)
+    func hide(for duration: Duration)
 }
 
 /// A key the expanded panel handles while it is the key window.
@@ -48,9 +49,13 @@ final class AppModel {
     private(set) var muxyFrontmost = false
     private(set) var muxyExecutable: URL?
     private(set) var buildInfo: MuxyBuildInfo?
+    private(set) var hookStatus: HookInstallStatus?
+    private(set) var hookMessage: String?
+    private(set) var hookError: String?
 
     @ObservationIgnored let settings: AppSettings
     @ObservationIgnored weak var presenter: (any EyePresenting)?
+    @ObservationIgnored var openSettings: () -> Void = {}
 
     @ObservationIgnored private var muxy: MuxyCLI?
     @ObservationIgnored private var executor: AnswerExecutor?
@@ -82,9 +87,65 @@ final class AppModel {
         observeFrontmostApp()
         connectMuxy()
         startHookServer()
-        if muxy != nil {
-            pollTask = Task { [weak self] in await self?.runPollLoop() }
-            wake()
+        pollTask = Task { [weak self] in await self?.runPollLoop() }
+        if muxy != nil { wake() }
+        refreshHookStatus()
+    }
+
+    /// Looks for Muxy again after the path override or profile folder changed.
+    func muxySettingsChanged() {
+        muxy = nil
+        executor = nil
+        buildInfo = nil
+        needsMetadata = true
+        connectMuxy()
+        if muxy != nil { wake() }
+    }
+
+    func hidePanel(for duration: Duration) {
+        presenter?.hide(for: duration)
+    }
+
+    // MARK: Claude hooks
+
+    var claudeSettingsURL: URL {
+        ClaudeSettingsLocation.settingsURL(environment: ProcessInfo.processInfo.environment, home: home)
+    }
+
+    private var hookInstaller: HookInstaller {
+        HookInstaller(settingsURL: claudeSettingsURL, helperURL: HookWire.installedHelperURL(home: home))
+    }
+
+    func refreshHookStatus() {
+        do {
+            hookStatus = try hookInstaller.status()
+            hookError = nil
+        } catch {
+            hookStatus = nil
+            hookError = SetupText.hookError(error)
+        }
+    }
+
+    func installHooks() {
+        hookMessage = nil
+        do {
+            let bundled = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/muxy-eye-hook")
+            try HookInstaller.installHelper(from: bundled, to: HookWire.installedHelperURL(home: home))
+            try hookInstaller.install()
+            hookMessage = SetupText.restartHint
+            refreshHookStatus()
+        } catch {
+            hookError = SetupText.hookError(error)
+        }
+    }
+
+    func removeHooks() {
+        hookMessage = nil
+        do {
+            try hookInstaller.uninstall()
+            refreshHookStatus()
+        } catch {
+            hookError = SetupText.hookError(error)
         }
     }
 
@@ -339,7 +400,8 @@ final class AppModel {
 
     private func runPollLoop() async {
         for await _ in wakeStream {
-            guard let muxy, !Task.isCancelled else { return }
+            guard !Task.isCancelled else { return }
+            guard let muxy else { continue }
             let includeMetadata = needsMetadata
             let actions = await MuxyPoller(muxy: muxy).poll(includeMetadata: includeMetadata)
             let gotMetadata = actions.contains { if case .metadata = $0 { true } else { false } }
