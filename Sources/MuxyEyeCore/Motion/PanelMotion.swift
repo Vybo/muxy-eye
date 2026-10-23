@@ -141,6 +141,9 @@ public struct PanelMotion: Sendable, Equatable {
         max(shapeClose?.totalTime ?? 0, panelFade?.totalTime ?? 0, contentOut?.totalTime ?? 0, eyeIn.totalTime)
     }
 
+    /// Room around the collapsed eye while it changes on its own: the count's pop, the wing's spring.
+    public static let eyeMargin: CGFloat = 4
+
     /// Room around a shape travelling `travel` points with the opening spring, for its overshoot.
     /// Twice the plain overshoot, since a target that moves mid-flight can carry it further.
     public static func overshootMargin(forTravel travel: Double) -> CGFloat {

@@ -95,9 +95,16 @@ import Testing
         #expect(pop.scale <= 1.3)
         #expect(pop.rise < pop.fall)
         #expect(pop.totalTime <= 0.4)
-        // The bumped badge must not be clipped by the window, which grows by at least 8 points.
+        // The bumped badge must not be clipped by the window, which grows by the eye's small margin.
         let overflow = (pop.scale - 1) * max(EyeLayout.badgeSize.width, EyeLayout.badgeSize.height) / 2
-        #expect(overflow <= PanelMotion.overshootMargin(forTravel: 0))
+        #expect(overflow <= PanelMotion.eyeMargin)
+    }
+
+    @Test func theEyesOwnChangesNeedOnlyAFewPointsAroundIt() throws {
+        let wing = try #require(motion.collapsedChange)
+        #expect(wing.curve.overshoot * EyeLayout.wingWidth <= PanelMotion.eyeMargin)
+        #expect(PanelMotion.eyeMargin <= 4)
+        #expect(PanelMotion.eyeMargin < PanelMotion.overshootMargin(forTravel: 0))
     }
 
     @Test func pickedAnswerFlashesForAboutASixthOfASecond() {

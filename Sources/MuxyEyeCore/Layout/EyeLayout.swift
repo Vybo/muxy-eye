@@ -59,6 +59,25 @@ public struct EyeOutline: Sendable, Equatable {
         self.topRadius = topRadius
         self.bottomRadius = bottomRadius
     }
+
+    /// Whether `point`, in screen coordinates (y up, so the top corners are at `maxY`), is inside
+    /// the outline, its rounded corners taken as circular.
+    public func contains(_ point: CGPoint) -> Bool {
+        let rect = frame.standardized
+        guard point.x >= rect.minX, point.x <= rect.maxX, point.y >= rect.minY, point.y <= rect.maxY else {
+            return false
+        }
+        let limit = max(0, min(rect.width, rect.height) / 2)
+        let upper = point.y >= rect.midY
+        let radius = min(max(upper ? topRadius : bottomRadius, 0), limit)
+        guard radius > 0 else { return true }
+        // The nearest point of the outline's inner rectangle, inset by the radius at the corners.
+        let centerX = min(max(point.x, rect.minX + radius), rect.maxX - radius)
+        let centerY = upper ? min(point.y, rect.maxY - radius) : max(point.y, rect.minY + radius)
+        let dx = point.x - centerX
+        let dy = point.y - centerY
+        return dx * dx + dy * dy <= radius * radius
+    }
 }
 
 public enum EyeLayout {

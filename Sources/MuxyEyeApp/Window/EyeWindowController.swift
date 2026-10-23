@@ -26,8 +26,9 @@ final class EyeWindowController: EyePresenting {
     private var geometry: ScreenGeometry?
     /// The waiting count the eye shows, to notice when its badge pops.
     private var waitingCount = 0
-    /// Room around moving shapes for a spring's overshoot, on the current screen.
-    private var margin: CGFloat = 0
+    /// Room around the panel's shape for its spring's overshoot while it opens or closes, on the
+    /// current screen. The eye's own changes need only `PanelMotion.eyeMargin`.
+    private var shapeMargin: CGFloat = 0
     private var window = EyeWindowFrame(footprint: .zero)
     private var settleTask: Task<Void, Never>?
     /// Pulls the panel's shape back into the eye once the content has faded.
@@ -44,6 +45,8 @@ final class EyeWindowController: EyePresenting {
         hostingView.rootView = EyeRootView(model: model, stage: stage) { [weak self] height in
             self?.expandedHeightChanged(height)
         }
+        // While the window is larger than the panel, a click beside it lands here, not in another app.
+        panel.onClickOutside = { [weak self] in self?.model.collapse() }
     }
 
     func show() {
@@ -119,10 +122,14 @@ final class EyeWindowController: EyePresenting {
         stage.expandedFrame = expanded
 
         var duration: Double?
-        func extend(_ seconds: Double?) {
+        var margin: CGFloat = 0
+        /// An animation starts for `seconds` and may reach `room` beyond what it moves across.
+        func extend(_ seconds: Double?, room: CGFloat) {
             guard let seconds else { return }
             duration = max(duration ?? 0, seconds)
+            margin = max(margin, room)
         }
+        let eyeRoom = PanelMotion.eyeMargin
 
         // The eye's wing or badge grows or retracts while the eye shows; under the open panel it jumps.
         let eyeShows = phase != .expanded
@@ -130,10 +137,10 @@ final class EyeWindowController: EyePresenting {
             stage.collapsedMotion = eyeShows ? motion.collapsedChange?.animation : nil
             stage.collapsed = collapsed
             // With Reduce Motion the shape jumps and only the badge fades.
-            if eyeShows { extend(motion.collapsedChange?.totalTime ?? motion.transitionFade?.totalTime) }
+            if eyeShows { extend(motion.collapsedChange?.totalTime ?? motion.transitionFade?.totalTime, room: eyeRoom) }
         }
-        // The count's pop needs the window's margin around the badge.
-        if countChanged, eyeShows { extend(motion.countPop?.totalTime) }
+        // The count's pop needs a few points around the badge.
+        if countChanged, eyeShows { extend(motion.countPop?.totalTime, room: eyeRoom) }
 
         if phase != previous {
             stage.phase = phase
@@ -145,20 +152,20 @@ final class EyeWindowController: EyePresenting {
                 stage.panelOpacityMotion = motion.panelFade?.animation
                 stage.panelOpacity = 1
                 setPanelOutline(EyeLayout.expandedOutline(expanded), motion: motion.shapeOpen)
-                extend(motion.openDuration)
+                extend(motion.openDuration, room: motion.shapeOpen == nil ? 0 : shapeMargin)
             } else {
                 if let fade = motion.panelFade {
                     stage.panelOpacityMotion = fade.animation
                     stage.panelOpacity = 0
                 }
                 schedulePullBack(motion.shapeClose)
-                extend(motion.closeDuration)
+                extend(motion.closeDuration, room: motion.shapeClose == nil ? 0 : shapeMargin)
             }
         } else if expandedChanged, phase.isExpanding {
             // The content measured a new height: follow it, smoothly while still opening.
             let open = phase == .opening ? motion.shapeOpen : nil
             setPanelOutline(EyeLayout.expandedOutline(expanded), motion: open)
-            extend(open?.totalTime)
+            extend(open?.totalTime, room: shapeMargin)
         } else if collapsedChanged, phase == .collapsed {
             // The hidden panel shape stays on the eye's, ready for the next opening.
             setPanelOutline(EyeLayout.collapsedOutline(collapsed), motion: motion.collapsedChange)
@@ -166,12 +173,12 @@ final class EyeWindowController: EyePresenting {
             // Already pulling back: land on the eye's new shape.
             let landing = Motion(shape.curve)
             setPanelOutline(EyeLayout.collapsedOutline(collapsed), motion: landing)
-            extend(landing.totalTime)
+            extend(landing.totalTime, room: shapeMargin)
         }
 
         let footprint = phase.footprint(collapsed: collapsed, expanded: expanded)
         if let duration {
-            window.animate(to: footprint, at: .now, for: .seconds(duration))
+            window.animate(to: footprint, at: .now, for: .seconds(duration), margin: margin)
         } else {
             window.jump(to: footprint)
         }
@@ -191,7 +198,7 @@ final class EyeWindowController: EyePresenting {
         settleTask = nil
         pullBackTask?.cancel()
         pullBackTask = nil
-        margin = EyeLayout.motionMargin(on: geometry)
+        shapeMargin = EyeLayout.motionMargin(on: geometry)
         waitingCount = model.state.waitingCount
         stage.collapsedMotion = nil
         stage.panelMotion = nil
@@ -204,15 +211,18 @@ final class EyeWindowController: EyePresenting {
         stage.panelOutline = phase == .expanded
             ? EyeLayout.expandedOutline(expanded)
             : EyeLayout.collapsedOutline(collapsed)
+        panel.panelOutline = stage.panelOutline
         stage.panelOpacity = phase == .expanded ? 1 : 0
         window = EyeWindowFrame(footprint: phase.footprint(collapsed: collapsed, expanded: expanded))
         panel.showsShadow = phase == .expanded
         applyWindowFrame()
     }
 
+    /// Moves the panel's shape. The panel takes clicks inside where it is heading.
     private func setPanelOutline(_ outline: EyeOutline, motion: Motion?) {
         stage.panelMotion = motion?.animation
         stage.panelOutline = outline
+        panel.panelOutline = outline
     }
 
     /// The content fades first; after the shape's delay it pulls back into the eye.
@@ -228,7 +238,7 @@ final class EyeWindowController: EyePresenting {
         pullBackTask = nil
         guard stage.phase == .closing else { return }
         setPanelOutline(EyeLayout.collapsedOutline(stage.collapsed), motion: motion)
-        window.animate(to: window.footprint, at: .now, for: .seconds(motion.totalTime))
+        window.animate(to: window.footprint, at: .now, for: .seconds(motion.totalTime), margin: shapeMargin)
         scheduleSettle()
     }
 
@@ -267,7 +277,7 @@ final class EyeWindowController: EyePresenting {
     /// wait for both, so the shapes don't jump for a frame while the window moves under them.
     private func applyWindowFrame() {
         let stageFrame = stage.frame
-        let frame = window.frame(margin: margin, within: stageFrame)
+        let frame = window.frame(within: stageFrame)
         let placement = CGRect(
             x: stageFrame.minX - frame.minX,
             y: frame.maxY - stageFrame.maxY,
@@ -371,7 +381,10 @@ final class EyeStageView: NSView {
 
     override var isFlipped: Bool { true }
 
-    /// Clicks that miss the stage's shapes don't stop at this view.
+    /// Returns no view where the stage has nothing to hit. The window still receives such a click:
+    /// it doesn't pass through to the menu bar or the app below. That is why the window is larger
+    /// than the eye or the panel only while they animate, and why `EyePanel` handles a click beside
+    /// the expanded panel itself.
     override func hitTest(_ point: NSPoint) -> NSView? {
         let view = super.hitTest(point)
         return view === self ? nil : view
