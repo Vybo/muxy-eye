@@ -41,7 +41,7 @@ Waiting wins over working. The change from wave to ring happens within about a s
   The eye stays on the left wing, so it never jumps sides.
 - On a display without a notch, the eye is a small circle at the top center of the menu bar. With two or more sessions waiting, a count badge appears beside it.
 
-The eye is on the display of the app you are working in, and it follows you when you switch. Settings can pin it to one display instead. It shows on every Space and over full-screen apps. Only the visible shape takes clicks; the rest of the menu bar works as usual.
+The eye is on the display of the app you are working in, and it follows you when you switch. Settings can pin it to one display instead. It shows on every Space and over full-screen apps. Clicks are meant to land only on the visible shape, so the rest of the menu bar works as usual. That is checked by hand, as one of the items in the [QA checklist](docs/QA.md).
 
 **Click** the eye to open the panel. **Right-click** it for Settings…, Hide for 1 Hour, and Quit Muxy Eye. A hidden eye comes back after the hour, or when you start the app again.
 
@@ -136,13 +136,13 @@ When you answer, Muxy Eye:
 3. types the answer into that session, the way you would (`muxy session send` and `send-keys`):
    - an option is its number;
    - "No" with feedback picks No, waits for Claude's input prompt, then types your text and presses Return;
-   - a free-text answer to a question picks "Type something", types your text, and presses Return;
+   - a free-text answer to a question picks "Type something", waits until its text field has the cursor, then types your text and presses Return;
    - a reply types your text and presses Return.
 
    Line breaks in your text become spaces, and control characters are removed, so a reply can't press Return or Esc early.
 4. waits up to three seconds for Muxy to report that the session moved on. If it doesn't, it shows **Couldn't confirm — Open in Muxy**.
 
-Only one answer per session is in flight at a time. If Muxy's server isn't running, Muxy Eye shows idle and waits. It never runs a `muxy` command that would start the server.
+Only one answer per session is in flight at a time. If Muxy's server isn't running, Muxy Eye shows idle and waits. While `muxy server status` reports the server stopped, it runs no other `muxy` command, because those would start the server.
 
 ## Requirements
 
@@ -178,7 +178,8 @@ Press **Done** to finish, with or without the hooks. The setup window is shown o
 ### What installing the hooks changes
 
 - It edits `~/.claude/settings.json`. If Muxy Eye's environment sets `CLAUDE_CONFIG_DIR` to an absolute path, it edits `$CLAUDE_CONFIG_DIR/settings.json` instead.
-- If the file exists, it first saves a copy next to it, as `settings.json.muxy-eye-backup-<date>`. The file is then saved again with its keys sorted. All other entries and values are kept.
+  - Muxy Eye sees that variable only when you start it from a shell that sets it. Started from Finder, the Dock or at login, it doesn't see variables from your shell profile, so the hooks go into `~/.claude/settings.json`. Settings shows which file is in use.
+- If the file exists, it first saves a copy next to it, as `settings.json.muxy-eye-backup-<date>`. The copy gets the same permissions as the original. The file is then saved again with its keys sorted, keeping its permissions. All other entries and values are kept.
 - It adds one entry for each of `SessionStart`, `SessionEnd`, `UserPromptSubmit`, `PermissionRequest`, `PreToolUse` (only for `AskUserQuestion`), `PostToolUse`, `Notification` and `Stop`.
 - Every entry runs `~/Library/Application Support/Muxy Eye/bin/muxy-eye-hook`. That is a copy of the helper bundled in the app, refreshed each time the app starts.
 - Muxy Eye recognizes its own entries by `muxy-eye-hook` in the command. Install, Update and Remove only add or remove those entries.
