@@ -11,6 +11,10 @@ public enum MotionCurve: Sendable, Equatable {
     /// A strong deceleration, CSS `cubic-bezier(.2, .8, .2, 1)`.
     case decelerate(duration: Double)
 
+    /// The longest settling time reported. A spring without damping never settles, and an extreme
+    /// precision would take minutes to reach; both stop here.
+    public static let longestSettlingTime: Double = 10
+
     /// How far past its target the change goes, as a fraction of the distance it travels.
     public var overshoot: Double {
         guard case .spring(_, let damping) = self, damping < 1 else { return 0 }
@@ -24,6 +28,7 @@ public enum MotionCurve: Sendable, Equatable {
         case .easeOut(let duration), .easeInOut(let duration), .decelerate(let duration):
             return duration
         case .spring(let response, let damping):
+            guard response > 0, damping > 0 else { return Self.longestSettlingTime }
             let omega = 2 * Double.pi / response
             let envelope: (Double) -> Double
             if damping < 1 {
@@ -39,8 +44,8 @@ public enum MotionCurve: Sendable, Equatable {
             }
             let step = 1.0 / 240
             var time = 0.0
-            while envelope(time) > precision { time += step }
-            return time
+            while envelope(time) > precision, time < Self.longestSettlingTime { time += step }
+            return min(time, Self.longestSettlingTime)
         }
     }
 }

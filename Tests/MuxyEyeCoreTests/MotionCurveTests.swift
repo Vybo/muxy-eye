@@ -40,6 +40,21 @@ import Testing
         #expect(samples.contains { $0.time >= settled - 0.1 && abs($0.offset) > 0.0005 })
     }
 
+    @Test(arguments: [0.0, -0.5])
+    func springsThatNeverSettleStopAtTheLongestTime(damping: Double) {
+        let curve = MotionCurve.spring(response: 0.5, dampingFraction: damping)
+        #expect(curve.settlingTime() == MotionCurve.longestSettlingTime)
+    }
+
+    @Test func aDegenerateResponseStopsAtTheLongestTime() {
+        #expect(MotionCurve.spring(response: 0, dampingFraction: 1).settlingTime() == MotionCurve.longestSettlingTime)
+    }
+
+    @Test func anExtremePrecisionStillStopsAtTheLongestTime() {
+        let curve = MotionCurve.spring(response: 0.5, dampingFraction: 0.72)
+        #expect(curve.settlingTime(precision: 1e-300) == MotionCurve.longestSettlingTime)
+    }
+
     @Test func timedCurvesSettleAtTheirDuration() {
         #expect(MotionCurve.easeOut(duration: 0.12).settlingTime() == 0.12)
         #expect(MotionCurve.easeInOut(duration: 0.2).settlingTime() == 0.2)
