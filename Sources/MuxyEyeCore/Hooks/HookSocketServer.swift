@@ -37,14 +37,7 @@ public final class HookSocketServer: @unchecked Sendable {
         }
         unlink(path)
 
-        var address = sockaddr_un()
-        address.sun_family = sa_family_t(AF_UNIX)
-        let pathBytes = Array(path.utf8)
-        guard pathBytes.count < MemoryLayout.size(ofValue: address.sun_path) else { throw ServerError.pathTooLong }
-        withUnsafeMutableBytes(of: &address.sun_path) { buffer in
-            for (index, byte) in pathBytes.enumerated() { buffer[index] = byte }
-            buffer[pathBytes.count] = 0
-        }
+        guard var address = UnixSocket.address(path) else { throw ServerError.pathTooLong }
 
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
         guard fd >= 0 else { throw ServerError.syscall("socket", errno) }
@@ -65,7 +58,7 @@ public final class HookSocketServer: @unchecked Sendable {
             unlink(path)
             throw ServerError.syscall("listen", code)
         }
-        _ = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK)
+        UnixSocket.configureNonBlockingNoSigPipe(fd)
 
         let (stream, continuation) = AsyncStream<HookEnvelope>.makeStream()
         let source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: queue)
@@ -102,9 +95,7 @@ public final class HookSocketServer: @unchecked Sendable {
         while true {
             let client = accept(listenFD, nil, nil)
             guard client >= 0 else { return }
-            var on: Int32 = 1
-            setsockopt(client, SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size))
-            _ = fcntl(client, F_SETFL, fcntl(client, F_GETFL) | O_NONBLOCK)
+            UnixSocket.configureNonBlockingNoSigPipe(client)
             let connection = Connection(fd: client)
             let source = DispatchSource.makeReadSource(fileDescriptor: client, queue: queue)
             source.setEventHandler { [weak self] in self?.read(connection) }

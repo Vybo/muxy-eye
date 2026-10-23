@@ -3,7 +3,7 @@ import MuxyEyeCore
 
 HookForwarder.forward(
     event: CommandLine.arguments.dropFirst().first ?? "",
-    stdin: FileHandle.standardInput.readDataToEndOfFile(),
+    stdin: (try? FileHandle.standardInput.readToEnd()) ?? Data(),
     environment: ProcessInfo.processInfo.environment,
     home: FileManager.default.homeDirectoryForCurrentUser
 )

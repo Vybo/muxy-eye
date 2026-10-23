@@ -52,14 +52,30 @@ import Testing
         #expect(envelope.payload["last_assistant_message"]?.stringValue == "Done. `spike-ok.txt` created.")
     }
 
-    @Test func noSessionIdIsSkipped() throws {
-        let sent = HookForwarder.forward(
+    @Test func noSessionIdIsSkipped() async throws {
+        let url = socketURL()
+        let server = HookSocketServer(socketURL: url)
+        let stream = try server.start()
+        defer { server.stop() }
+
+        let skipped = HookForwarder.forward(
             event: "Stop",
-            stdin: Data("{}".utf8),
-            environment: ["MUXY_EYE_SOCKET": socketURL().path],
+            stdin: try stopPayload(),
+            environment: ["MUXY_EYE_SOCKET": url.path],
             home: FileManager.default.temporaryDirectory
         )
-        #expect(!sent)
+        #expect(!skipped)
+
+        let sent = HookForwarder.forward(
+            event: "Stop",
+            stdin: try stopPayload(),
+            environment: ["MUXY_SESSION_ID": "9", "MUXY_EYE_SOCKET": url.path],
+            home: FileManager.default.temporaryDirectory
+        )
+        #expect(sent)
+        let received = await first(stream)
+        let envelope = try #require(received)
+        #expect(envelope.muxySessionID == MuxySessionID("9"))
     }
 
     @Test func missingSocketFailsFast() {
@@ -93,30 +109,22 @@ import Testing
         defer { server.stop() }
 
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
-        #expect(fd >= 0)
-        var address = sockaddr_un()
-        address.sun_family = sa_family_t(AF_UNIX)
-        let path = url.path
-        withUnsafeMutableBytes(of: &address.sun_path) { buffer in
-            for (index, byte) in path.utf8.enumerated() { buffer[index] = byte }
-        }
+        try #require(fd >= 0)
+        var address = try #require(UnixSocket.address(url.path))
         let connected = withUnsafePointer(to: &address) {
             $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
                 connect(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
             }
         }
-        #expect(connected == 0)
-        let junk = Array("not json\n".utf8)
-        _ = junk.withUnsafeBytes { write(fd, $0.baseAddress, junk.count) }
+        try #require(connected == 0)
+        let valid = try JSONEncoder().encode(HookEnvelope(
+            v: 1, event: "Stop", muxySessionID: MuxySessionID("7"), muxyServerID: nil, payload: .object([:])
+        ))
+        let bytes = Array("not json\n".utf8) + Array(valid) + [0x0A]
+        let written = bytes.withUnsafeBytes { write(fd, $0.baseAddress, bytes.count) }
+        try #require(written == bytes.count)
         close(fd)
 
-        let sent = HookForwarder.forward(
-            event: "Stop",
-            stdin: try stopPayload(),
-            environment: ["MUXY_SESSION_ID": "7", "MUXY_EYE_SOCKET": url.path],
-            home: FileManager.default.temporaryDirectory
-        )
-        #expect(sent)
         let received = await first(stream)
         let envelope = try #require(received)
         #expect(envelope.muxySessionID == MuxySessionID("7"))

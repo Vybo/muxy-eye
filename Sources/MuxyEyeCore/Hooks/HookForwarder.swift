@@ -46,20 +46,9 @@ public enum HookForwarder {
         guard fd >= 0 else { return false }
         defer { close(fd) }
 
-        var on: Int32 = 1
-        setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size))
-        let flags = fcntl(fd, F_GETFL)
-        guard flags >= 0, fcntl(fd, F_SETFL, flags | O_NONBLOCK) == 0 else { return false }
-
-        var address = sockaddr_un()
-        address.sun_family = sa_family_t(AF_UNIX)
-        let pathBytes = Array(path.utf8)
-        let capacity = MemoryLayout.size(ofValue: address.sun_path)
-        guard pathBytes.count < capacity else { return false }
-        withUnsafeMutableBytes(of: &address.sun_path) { buffer in
-            for (index, byte) in pathBytes.enumerated() { buffer[index] = byte }
-            buffer[pathBytes.count] = 0
-        }
+        guard UnixSocket.configureNonBlockingNoSigPipe(fd),
+              var address = UnixSocket.address(path)
+        else { return false }
 
         var connected = false
         while !connected {
