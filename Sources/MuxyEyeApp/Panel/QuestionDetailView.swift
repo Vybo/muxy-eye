@@ -13,6 +13,7 @@ struct QuestionDetailView: View {
     let keyPress: PanelKeyPress?
 
     @Environment(\.isLeaving) private var leaving
+    @Environment(\.answerGate) private var answerGate
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selection: Set<Int> = []
@@ -20,6 +21,8 @@ struct QuestionDetailView: View {
     /// How often each option, and Submit, has sent an answer, to flash it each time.
     @State private var flashes: [Int: Int] = [:]
     @State private var submitFlashes = 0
+    /// Answers also wait for the next of several questions to fade in.
+    @State private var questionGate = AnswerGate.open
 
     var body: some View {
         let current = answerableQuestion
@@ -50,6 +53,10 @@ struct QuestionDetailView: View {
         }
         .onChange(of: current?.question, initial: true) {
             selection = checkedOnScreen(limit: current?.options.count ?? 0)
+        }
+        .onChange(of: shown?.question) { previous, _ in
+            guard previous != nil else { return }
+            questionGate = AnswerGate.open.revealing(at: .now, for: motion.revealTime(.promptSwap))
         }
         .onChange(of: keyPress) { _, press in
             // Only keys pressed while this prompt was the one on show, and never while it fades out.
@@ -138,14 +145,19 @@ struct QuestionDetailView: View {
 
     /// Flashes the picked option, unless an answer is already going out, and sends it.
     private func pick(_ number: Int, in question: Question) {
+        guard answersAllowed else { return }
         if !model.answering.contains(session) { flashes[number, default: 0] += 1 }
         send(.option(number), to: question)
     }
 
     private func submit(_ question: Question) {
+        guard answersAllowed else { return }
         if !model.answering.contains(session) { submitFlashes += 1 }
         send(.multiSelect(selection), to: question)
     }
+
+    /// Not until the question has faded in: the eye answers only what the user has seen.
+    private var answersAllowed: Bool { answerGate.combined(with: questionGate).allowsAnswer(at: .now) }
 
     private func toggle(_ number: Int) {
         if selection.contains(number) { selection.remove(number) } else { selection.insert(number) }
@@ -153,6 +165,7 @@ struct QuestionDetailView: View {
 
     /// Sends an answer bound to the question shown, so it can't land on another question of the request.
     private func send(_ answer: UserAnswer, to question: Question) {
+        guard answersAllowed else { return }
         Task {
             await model.answer(answer, to: pending, question: question.question, for: session)
             if model.lastOutcome[session] == .delivered { freeText = "" }

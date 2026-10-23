@@ -14,6 +14,7 @@ struct PermissionDetailView: View {
     let keyPress: PanelKeyPress?
 
     @Environment(\.isLeaving) private var leaving
+    @Environment(\.answerGate) private var answerGate
 
     @State private var feedback = ""
     /// How often each option has been picked, to flash it each time.
@@ -81,11 +82,16 @@ struct PermissionDetailView: View {
 
     /// Flashes the picked option, unless an answer is already going out, and sends it.
     private func pick(_ number: Int) {
+        guard answersAllowed else { return }
         if !model.answering.contains(session) { flashes[number, default: 0] += 1 }
         send(.option(number))
     }
 
+    /// Not until the prompt has faded in: the eye answers only what the user has seen.
+    private var answersAllowed: Bool { answerGate.allowsAnswer(at: .now) }
+
     private func send(_ answer: UserAnswer) {
+        guard answersAllowed else { return }
         Task {
             await model.answer(answer, to: pending, for: session)
             if model.lastOutcome[session] == .delivered { feedback = "" }

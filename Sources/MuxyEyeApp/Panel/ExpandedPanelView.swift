@@ -21,6 +21,8 @@ struct ExpandedPanelView: View {
     @State private var railHeight: CGFloat = 0
     @State private var detailHeight: CGFloat = 0
     @State private var appeared = false
+    /// Answers wait until the detail column has faded in.
+    @State private var answerGate = AnswerGate.open
 
     var body: some View {
         let motion = PanelMotion(reduceMotion: reduceMotion)
@@ -34,7 +36,15 @@ struct ExpandedPanelView: View {
         .reveal(revealed, show: reopening ? motion.contentReturn : motion.contentIn, hide: motion.contentOut)
         .environment(\.colorScheme, .dark)
         .onChange(of: desiredHeight, initial: true) { _, height in onHeightChange(height) }
-        .onAppear { appeared = true }
+        .environment(\.answerGate, answerGate)
+        .onAppear {
+            appeared = true
+            answerGate = answerGate.revealing(at: .now, for: motion.revealTime(.opening))
+        }
+        .onChange(of: contentShown) { _, shown in
+            guard shown else { return }
+            answerGate = answerGate.revealing(at: .now, for: motion.revealTime(reopening ? .reopening : .opening))
+        }
     }
 
     @ViewBuilder
@@ -50,6 +60,7 @@ struct ExpandedPanelView: View {
                 // Another session's detail cross-fades in over the last one.
                 ZStack(alignment: .topLeading) {
                     SessionDetailView(model: model, record: record, keyPress: model.keyPress)
+                        .holdsAnswers(for: motion.revealTime(.sessionSwitch))
                         .id(record.id)
                         .transition(motion.leavingFade)
                 }
@@ -171,6 +182,7 @@ private struct SessionDetailView: View {
                     FinishedDetailView(model: model, session: record.id, pending: pending, message: message)
                 }
             }
+            .holdsAnswers(for: PanelMotion(reduceMotion: reduceMotion).revealTime(.promptSwap))
             .id(pending.receivedAt)
             .transition(transition)
         } else if waiting {

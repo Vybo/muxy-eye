@@ -139,6 +139,32 @@ import Testing
         #expect(banner.totalTime < 0.5)
     }
 
+    @Test func answersWaitUntilTheShownPromptHasFadedIn() throws {
+        let detail = try #require(motion.detailIn)
+        let content = try #require(motion.contentIn)
+        #expect(motion.revealTime(.opening) == detail.totalTime)
+        #expect(motion.revealTime(.opening) >= content.totalTime)
+        #expect(motion.revealTime(.reopening) == motion.contentReturn?.totalTime)
+        #expect(motion.revealTime(.sessionSwitch) == motion.detailSwap?.totalTime)
+        #expect(motion.revealTime(.promptSwap) == motion.promptSwap?.totalTime)
+    }
+
+    @Test func withReduceMotionAnswersWaitForTheFade() throws {
+        let panel = try #require(reduced.panelFade)
+        let fade = try #require(reduced.transitionFade)
+        #expect(reduced.revealTime(.opening) == panel.totalTime)
+        #expect(reduced.revealTime(.reopening) == panel.totalTime)
+        #expect(reduced.revealTime(.sessionSwitch) == fade.totalTime)
+        #expect(reduced.revealTime(.promptSwap) == fade.totalTime)
+    }
+
+    @Test(arguments: [PromptArrival.opening, .reopening, .sessionSwitch, .promptSwap])
+    func everyArrivalHoldsAnswersForAMoment(arrival: PromptArrival) {
+        #expect(motion.revealTime(arrival) > 0)
+        #expect(reduced.revealTime(arrival) > 0)
+        #expect(motion.revealTime(arrival) < 1)
+    }
+
     // MARK: Reduce Motion
 
     @Test func fullMotionKeepsThePanelOpaqueAndTransitionsOnTheirOwnCurves() {

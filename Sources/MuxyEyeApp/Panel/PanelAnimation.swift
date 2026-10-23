@@ -16,6 +16,24 @@ extension Motion {
 extension EnvironmentValues {
     /// The view is on its way out (a fading detail or prompt): it must not act on keys any more.
     @Entry var isLeaving = false
+
+    /// When the prompts inside may take answers: only once they have faded in.
+    @Entry var answerGate = AnswerGate.open
+}
+
+/// Holds the answers of what's inside until it has faded in: for `seconds` from when it appears,
+/// on top of any hold from around it.
+private struct AnswerHold: ViewModifier {
+    let seconds: Double
+
+    @Environment(\.answerGate) private var outer
+    @State private var own = AnswerGate.open
+
+    func body(content: Content) -> some View {
+        content
+            .environment(\.answerGate, outer.combined(with: own))
+            .onAppear { own = AnswerGate.open.revealing(at: .now, for: seconds) }
+    }
 }
 
 /// A fade that tells the view while it leaves, through `isLeaving`.
@@ -55,6 +73,11 @@ extension View {
     /// Lights the view up briefly, as a rounded rectangle, each time `trigger` changes.
     func answerFlash(_ trigger: Int, cornerRadius: CGFloat, flash: Flash) -> some View {
         modifier(AnswerFlash(trigger: trigger, cornerRadius: cornerRadius, flash: flash))
+    }
+
+    /// Holds the answers of the prompts inside until they have faded in, `seconds` after this appears.
+    func holdsAnswers(for seconds: Double) -> some View {
+        modifier(AnswerHold(seconds: seconds))
     }
 
     /// Places the view at `rect`, in the top-left coordinates of the stage it is drawn on.

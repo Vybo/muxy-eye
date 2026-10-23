@@ -30,6 +30,18 @@ public struct Flash: Sendable, Equatable {
     public var totalTime: Double { rise + fall }
 }
 
+/// How a prompt comes on show in the panel.
+public enum PromptArrival: Sendable, Equatable, CaseIterable {
+    /// The panel opens and its content cascades in.
+    case opening
+    /// The panel opens again before it finished closing; its content comes straight back.
+    case reopening
+    /// Another session is selected and its detail cross-fades in.
+    case sessionSwitch
+    /// The session's prompt is replaced, or the next of several questions shows.
+    case promptSwap
+}
+
 /// The eye's animations, after the approved "island spring" mockup: the eye stretches into the
 /// panel with a slight overshoot and the content cascades in; closing fades the content out, then
 /// pulls the shape back into the eye without overshoot.
@@ -131,6 +143,18 @@ public struct PanelMotion: Sendable, Equatable {
 
     /// An outcome banner arriving under the header, or leaving.
     public var banner: Motion? { moving(Motion(.spring(response: 0.3, dampingFraction: 0.9))) }
+
+    /// Seconds from a prompt's arrival until it has fully faded in. The eye answers only what the
+    /// user has seen, so answer keys and clicks wait this long.
+    public func revealTime(_ arrival: PromptArrival) -> Double {
+        let time: Double? = switch arrival {
+        case .opening: reduceMotion ? panelFade?.totalTime : detailIn?.totalTime
+        case .reopening: reduceMotion ? panelFade?.totalTime : contentReturn?.totalTime
+        case .sessionSwitch: (detailSwap ?? transitionFade)?.totalTime
+        case .promptSwap: (promptSwap ?? transitionFade)?.totalTime
+        }
+        return time ?? Self.fade.totalTime
+    }
 
     // MARK: Settling
 

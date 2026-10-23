@@ -12,6 +12,8 @@ struct FinishedDetailView: View {
 
     @State private var reply = ""
 
+    @Environment(\.answerGate) private var answerGate
+
     var body: some View {
         let busy = model.answering.contains(session)
         VStack(alignment: .leading, spacing: 8) {
@@ -21,13 +23,18 @@ struct FinishedDetailView: View {
                     send(.reply(reply))
                 }
                 PanelButton(title: "Dismiss") {
+                    guard answersAllowed else { return }
                     model.dismiss(pending, for: session)
                 }
             }
         }
     }
 
+    /// Not until the message has faded in: the eye acts only on what the user has seen.
+    private var answersAllowed: Bool { answerGate.allowsAnswer(at: .now) }
+
     private func send(_ answer: UserAnswer) {
+        guard answersAllowed else { return }
         Task {
             await model.answer(answer, to: pending, for: session)
             if model.lastOutcome[session] == .delivered { reply = "" }
