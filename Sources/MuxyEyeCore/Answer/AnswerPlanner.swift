@@ -1,0 +1,131 @@
+import Foundation
+
+public enum NamedKey: String, Sendable {
+    case enter = "Enter"
+    case tab = "Tab"
+    case escape = "Escape"
+    case backspace = "Backspace"
+}
+
+public enum UserAnswer: Sendable, Equatable {
+    case option(Int)
+    case deny(feedback: String)
+    case freeText(String)
+    case multiSelect(Set<Int>)
+    case reply(String)
+}
+
+public enum AnswerStep: Sendable, Equatable {
+    case text(String)
+    case key(NamedKey)
+    case expectIdlePrompt
+    case expectSubmitReview
+}
+
+public enum AnswerRejection: Error, Sendable, Equatable {
+    case promptChanged
+    case unsupported
+    case noMatchingOption
+}
+
+extension QuestionRequest {
+    func current(on screen: ScreenPrompt?) -> Question? {
+        guard case .question(_, let text, _, _)? = screen else { return nil }
+        return questions.first { $0.question == text }
+    }
+}
+
+public enum AnswerPlanner {
+    static let arrowRight = "\u{1B}[C"
+
+    private static let fileTools: Set<String> = ["Write", "Edit", "MultiEdit"]
+
+    static func matches(_ pending: PendingItem, screen: ScreenPrompt?, idlePrompt: Bool) -> Bool {
+        switch pending.kind {
+        case .finished:
+            return idlePrompt
+        case .permission(let request):
+            guard case .permission(_, let body, _, _)? = screen else { return false }
+            guard let primary = request.primaryText else { return true }
+            let squashedBody = squash(body)
+            if squashedBody.contains(squash(primary)) { return true }
+            if fileTools.contains(request.toolName) {
+                let name = (primary as NSString).lastPathComponent
+                return !name.isEmpty && squashedBody.contains(squash(name))
+            }
+            return false
+        case .question(let request):
+            guard case .question(_, _, let options, _)? = screen,
+                  let question = request.current(on: screen)
+            else { return false }
+            let labels = options.map(\.label)
+            let expected = question.options.map(\.label)
+            return labels.count >= expected.count && Array(labels.prefix(expected.count)) == expected
+        }
+    }
+
+    static func steps(
+        for answer: UserAnswer,
+        pending: PendingItem,
+        screen: ScreenPrompt?,
+        idlePrompt: Bool
+    ) -> Result<[AnswerStep], AnswerRejection> {
+        guard matches(pending, screen: screen, idlePrompt: idlePrompt) else { return .failure(.promptChanged) }
+
+        if case .reply(let text) = answer {
+            guard case .finished = pending.kind else { return .failure(.promptChanged) }
+            return .success([.text(text), .key(.enter)])
+        }
+        if case .finished = pending.kind { return .failure(.promptChanged) }
+
+        guard let screen, let (options, isMulti) = optionsAndMode(of: screen) else { return .failure(.promptChanged) }
+
+        switch answer {
+        case .option(let n):
+            guard !isMulti, options.contains(where: { $0.number == n }) else {
+                return .failure(isMulti ? .unsupported : .noMatchingOption)
+            }
+            return .success([.text(String(n))])
+        case .deny(let feedback):
+            guard case .permission = pending.kind else { return .failure(.unsupported) }
+            guard let no = options.first(where: { $0.label == "No" || $0.label.hasPrefix("No,") }) else {
+                return .failure(.noMatchingOption)
+            }
+            return .success([.text(String(no.number)), .expectIdlePrompt, .text(feedback), .key(.enter)])
+        case .freeText(let text):
+            guard !isMulti, case .question = pending.kind else { return .failure(.unsupported) }
+            guard let row = options.first(where: { $0.label.hasPrefix("Type something") }) else {
+                return .failure(.noMatchingOption)
+            }
+            return .success([.text(String(row.number)), .text(text), .key(.enter)])
+        case .multiSelect(let selected):
+            guard isMulti, case .question(let request) = pending.kind,
+                  let question = request.current(on: screen)
+            else { return .failure(.unsupported) }
+            let count = question.options.count
+            guard selected.allSatisfy({ (1...max(count, 1)).contains($0) }) else { return .failure(.noMatchingOption) }
+            var steps: [AnswerStep] = []
+            for option in options where option.number <= count {
+                if (option.checked ?? false) != selected.contains(option.number) {
+                    steps.append(.text(String(option.number)))
+                }
+            }
+            steps.append(contentsOf: [.text(arrowRight), .expectSubmitReview, .text("1")])
+            return .success(steps)
+        case .reply:
+            return .failure(.promptChanged)
+        }
+    }
+
+    private static func optionsAndMode(of screen: ScreenPrompt) -> ([ScreenOption], Bool)? {
+        switch screen {
+        case .permission(_, _, _, let options): (options, false)
+        case .question(_, _, let options, let isMulti): (options, isMulti)
+        case .submitReview: nil
+        }
+    }
+
+    private static func squash(_ text: String) -> String {
+        String(text.unicodeScalars.filter { !CharacterSet.whitespacesAndNewlines.contains($0) })
+    }
+}
