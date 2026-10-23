@@ -26,6 +26,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if !settings.didOnboard {
             showOnboarding()
         }
+        // `open "Muxy Eye.app" --args --settings` opens Settings at launch.
+        if CommandLine.arguments.contains("--settings") {
+            showSettings()
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
