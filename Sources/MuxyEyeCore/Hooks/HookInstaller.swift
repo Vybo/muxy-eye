@@ -144,6 +144,11 @@ public struct HookInstaller: Sendable {
         guard let hooks = value as? [String: Any] else {
             throw HookInstallerError.malformedSettings("\"hooks\" is not an object")
         }
+        for (event, _) in Self.entries {
+            if let groups = hooks[event], !(groups is [Any]) {
+                throw HookInstallerError.malformedSettings("\"hooks.\(event)\" is not an array")
+            }
+        }
         return hooks
     }
 
@@ -165,7 +170,12 @@ public struct HookInstaller: Sendable {
             )
             try original.data.write(to: backup)
         }
-        try output.write(to: settingsURL, options: .atomic)
+        let target = settingsURL.resolvingSymlinksInPath()
+        let mode = (try? fileManager.attributesOfItem(atPath: target.path))?[.posixPermissions] as? Int
+        try output.write(to: target, options: .atomic)
+        if let mode {
+            try fileManager.setAttributes([.posixPermissions: mode], ofItemAtPath: target.path)
+        }
     }
 
     private static func isOurs(_ hook: Any) -> Bool {
@@ -190,7 +200,7 @@ public struct HookInstaller: Sendable {
 
     private static func removeOurs(from hooks: inout [String: Any]) {
         for (event, value) in hooks {
-            guard let groups = value as? [Any] else { continue }
+            guard let groups = value as? [Any], groups.contains(where: { ourGroups([$0]).isEmpty == false }) else { continue }
             var kept: [Any] = []
             for group in groups {
                 guard var dict = group as? [String: Any], let inner = dict["hooks"] as? [Any],

@@ -178,4 +178,72 @@ import Testing
         #expect(try Data(contentsOf: dest) == Data("two".utf8))
         #expect(try mode(dest) == 0o755)
     }
+
+    @Test func foreignEmptyEventArraysSurvive() throws {
+        let dir = try makeDir()
+        try writeSettings(dir, #"{"hooks":{"Notification":[],"SubagentStop":[]}}"#)
+        let sut = installer(dir)
+        try sut.install()
+        var hooks = try #require(try readJSON(settingsURL(dir))["hooks"] as? [String: Any])
+        #expect((hooks["Notification"] as? [Any])?.count == 1)
+        #expect((hooks["SubagentStop"] as? [Any])?.isEmpty == true)
+        try sut.uninstall()
+        hooks = try #require(try readJSON(settingsURL(dir))["hooks"] as? [String: Any])
+        #expect((hooks["SubagentStop"] as? [Any])?.isEmpty == true)
+        #expect(hooks["Stop"] == nil)
+        #expect(hooks["Notification"] == nil)
+    }
+
+    @Test func nonArrayEventValueIsMalformed() throws {
+        let dir = try makeDir()
+        let original = #"{"hooks":{"Stop":"oops"}}"#
+        try writeSettings(dir, original)
+        #expect(throws: HookInstallerError.self) { try installer(dir).install() }
+        #expect(try Data(contentsOf: settingsURL(dir)) == Data(original.utf8))
+        #expect(try backups(dir).isEmpty)
+    }
+
+    @Test func symlinkedSettingsStaysSymlink() throws {
+        let dir = try makeDir()
+        let target = dir.appendingPathComponent("dotfiles/claude-settings.json")
+        try FileManager.default.createDirectory(
+            at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(#"{"model":"x"}"#.utf8).write(to: target)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: target.path)
+        let link = settingsURL(dir)
+        try FileManager.default.createDirectory(
+            at: link.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: target)
+        let sut = installer(dir)
+        try sut.install()
+        #expect((try? FileManager.default.destinationOfSymbolicLink(atPath: link.path)) != nil)
+        let json = try readJSON(target)
+        #expect(json["model"] as? String == "x")
+        #expect(groups(json, "Stop").count == 1)
+        let mode = try #require(FileManager.default.attributesOfItem(atPath: target.path)[.posixPermissions] as? Int)
+        #expect(mode == 0o600)
+        #expect(try backups(dir).count == 1)
+        #expect(try sut.status() == .installed)
+    }
+
+    @Test func legacyLookalikeHookIsLeftAlone() throws {
+        let dir = try makeDir()
+        let command = "'/Users/u/Library/Application Support/Muxy/hooks/muxy-claude-hook.sh' permission-request # muxy-notification-hook"
+        let original: [String: Any] = ["hooks": ["PermissionRequest": [["matcher": "*", "hooks": [["type": "command", "command": command]]]]]]
+        try FileManager.default.createDirectory(
+            at: settingsURL(dir).deletingLastPathComponent(), withIntermediateDirectories: true)
+        try JSONSerialization.data(withJSONObject: original).write(to: settingsURL(dir))
+        let sut = installer(dir)
+        #expect(try sut.status() == .notInstalled)
+        func legacyCount() throws -> Int {
+            groups(try readJSON(settingsURL(dir)), "PermissionRequest").filter {
+                (($0["hooks"] as? [[String: Any]]) ?? []).contains { $0["command"] as? String == command }
+            }.count
+        }
+        try sut.install()
+        #expect(try legacyCount() == 1)
+        try sut.uninstall()
+        #expect(try legacyCount() == 1)
+        #expect(groups(try readJSON(settingsURL(dir)), "PermissionRequest").count == 1)
+    }
 }
