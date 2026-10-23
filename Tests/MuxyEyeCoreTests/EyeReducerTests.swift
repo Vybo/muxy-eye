@@ -80,12 +80,102 @@ import Testing
         #expect(try #require(s.sessions[a]).pending == nil)
     }
 
-    @Test func postToolUseClearsPrompt() throws {
+    func toolUse(_ name: String, _ input: JSONValue, id: String? = nil, agent: String? = nil) -> ClaudeHookEvent {
+        .postToolUse(ToolUse(toolName: name, toolInput: input, toolUseID: id, agentID: agent))
+    }
+
+    let question = QuestionRequest(
+        questions: [Question(question: "Which color?", header: "Color", options: [QuestionOption(label: "Red", description: nil)], multiSelect: false)],
+        toolUseID: "toolu_q1"
+    )
+
+    @Test func postToolUseOfSameToolAndInputClearsPermission() throws {
         var s = EyeState()
         run(&s, .snapshot(snap([agent("A", .working)]), at: t(0)))
         run(&s, .hook(hook("A", .permission(permission)), at: t(1)))
-        run(&s, .hook(hook("A", .postToolUse(toolName: "Bash")), at: t(2)))
+        run(&s, .hook(hook("A", toolUse("Bash", .object(["command": .string("ls")]), id: "toolu_b1")), at: t(2)))
         #expect(try #require(s.sessions[a]).pending == nil)
+    }
+
+    @Test func postToolUseOfAnotherToolKeepsPermission() throws {
+        var s = EyeState()
+        run(&s, .snapshot(snap([agent("A", .working)]), at: t(0)))
+        run(&s, .hook(hook("A", .permission(permission)), at: t(1)))
+        run(&s, .hook(hook("A", toolUse("Read", .object(["file_path": .string("/p/a.swift")]))), at: t(2)))
+        #expect(try #require(s.sessions[a]).pending?.kind == .permission(permission))
+    }
+
+    @Test func postToolUseOfSameToolWithOtherInputKeepsPermission() throws {
+        var s = EyeState()
+        run(&s, .snapshot(snap([agent("A", .working)]), at: t(0)))
+        run(&s, .hook(hook("A", .permission(permission)), at: t(1)))
+        run(&s, .hook(hook("A", toolUse("Bash", .object(["command": .string("pwd")]))), at: t(2)))
+        #expect(try #require(s.sessions[a]).pending?.kind == .permission(permission))
+    }
+
+    @Test func postToolUseFromAnotherAgentKeepsPermission() throws {
+        var s = EyeState()
+        run(&s, .snapshot(snap([agent("A", .working)]), at: t(0)))
+        run(&s, .hook(hook("A", .permission(permission)), at: t(1)))
+        run(&s, .hook(hook("A", toolUse("Bash", .object(["command": .string("ls")]), agent: "sub1")), at: t(2)))
+        #expect(try #require(s.sessions[a]).pending?.kind == .permission(permission))
+
+        let subagentRequest = PermissionRequest(toolName: "Bash", toolInput: .object(["command": .string("ls")]), agentID: "sub1")
+        run(&s, .hook(hook("A", .permission(subagentRequest)), at: t(3)))
+        run(&s, .hook(hook("A", toolUse("Bash", .object(["command": .string("ls")]))), at: t(4)))
+        #expect(try #require(s.sessions[a]).pending?.kind == .permission(subagentRequest))
+        run(&s, .hook(hook("A", toolUse("Bash", .object(["command": .string("ls")]), agent: "sub1")), at: t(5)))
+        #expect(try #require(s.sessions[a]).pending == nil)
+    }
+
+    @Test func questionIsClearedOnlyByItsOwnAskUserQuestion() throws {
+        var s = EyeState()
+        run(&s, .snapshot(snap([agent("A", .working)]), at: t(0)))
+        run(&s, .hook(hook("A", .question(question)), at: t(1)))
+        run(&s, .hook(hook("A", toolUse("Bash", .object(["command": .string("ls")]), id: "toolu_b1")), at: t(2)))
+        #expect(try #require(s.sessions[a]).pending?.kind == .question(question))
+        run(&s, .hook(hook("A", toolUse("AskUserQuestion", .null, id: "toolu_other")), at: t(3)))
+        #expect(try #require(s.sessions[a]).pending?.kind == .question(question))
+        run(&s, .hook(hook("A", toolUse("AskUserQuestion", .null, id: "toolu_q1")), at: t(4)))
+        #expect(try #require(s.sessions[a]).pending == nil)
+    }
+
+    @Test func questionWithoutToolUseIDIsClearedByAnyAskUserQuestion() throws {
+        var s = EyeState()
+        let anonymous = QuestionRequest(questions: question.questions)
+        run(&s, .snapshot(snap([agent("A", .working)]), at: t(0)))
+        run(&s, .hook(hook("A", .question(anonymous)), at: t(1)))
+        run(&s, .hook(hook("A", toolUse("Write", .object(["file_path": .string("/p/a.md")]))), at: t(2)))
+        #expect(try #require(s.sessions[a]).pending != nil)
+        run(&s, .hook(hook("A", toolUse("AskUserQuestion", .null, id: "toolu_q9")), at: t(3)))
+        #expect(try #require(s.sessions[a]).pending == nil)
+    }
+
+    @Test func postToolUseDoesNotClearFinished() throws {
+        var s = EyeState()
+        run(&s, .snapshot(snap([agent("A", .idle)]), at: t(0)))
+        run(&s, .hook(hook("A", .stop(lastAssistantMessage: "Done.")), at: t(1)))
+        run(&s, .hook(hook("A", toolUse("Bash", .object(["command": .string("ls")]))), at: t(2)))
+        #expect(try #require(s.sessions[a]).pending?.kind == .finished(message: "Done."))
+    }
+
+    @Test func recordedPostToolUseClearsRecordedPermission() throws {
+        func decoded(_ name: String) throws -> HookEvent {
+            let envelope = try JSONDecoder().decode(HookEnvelope.self, from: Fixture.data("hooks/\(name).json"))
+            return try #require(HookDecoder.decode(envelope))
+        }
+        let session = MuxySessionID("5602690846448319352")
+        var s = EyeState()
+        run(&s, .snapshot(snap([AgentActivity(session: session, project: "p", provider: "Claude", state: .working)]), at: t(0)))
+        run(&s, .hook(try decoded("permission-request-bash"), at: t(1)))
+        #expect(try #require(s.sessions[session]).pending != nil)
+        run(&s, .hook(try decoded("post-tool-use-bash"), at: t(2)))
+        #expect(try #require(s.sessions[session]).pending == nil)
+
+        run(&s, .hook(try decoded("pre-tool-use-question-multi"), at: t(3)))
+        #expect(try #require(s.sessions[session]).pending != nil)
+        run(&s, .hook(try decoded("post-tool-use-question-multi"), at: t(4)))
+        #expect(try #require(s.sessions[session]).pending == nil)
     }
 
     @Test func stopCreatesFinished() throws {

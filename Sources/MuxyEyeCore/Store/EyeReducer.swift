@@ -157,8 +157,8 @@ public enum EyeReducer {
         case let .question(request):
             record.pending = PendingItem(kind: .question(request), receivedAt: now, sawBlocked: record.muxyState == .blocked)
             effects.append(.becameWaiting(id))
-        case .postToolUse:
-            if let pending = record.pending, pending.kind.isPrompt { record.pending = nil }
+        case let .postToolUse(use):
+            if let pending = record.pending, pending.kind.isCompleted(by: use) { record.pending = nil }
         case .notification:
             break
         case let .stop(message):
@@ -191,8 +191,20 @@ public enum EyeReducer {
 }
 
 private extension PendingKind {
-    var isPrompt: Bool {
-        if case .finished = self { return false }
-        return true
+    /// Whether this finished tool call is the one the prompt asked about. Other tools, including
+    /// those of parallel subagents, finish in the same session while a prompt is open.
+    func isCompleted(by use: ToolUse) -> Bool {
+        switch self {
+        case let .permission(request):
+            return use.toolName == request.toolName
+                && use.toolInput == request.toolInput
+                && use.agentID == request.agentID
+        case let .question(request):
+            guard use.toolName == HookDecoder.askUserQuestion else { return false }
+            guard let asked = request.toolUseID, let finished = use.toolUseID else { return true }
+            return asked == finished
+        case .finished:
+            return false
+        }
     }
 }

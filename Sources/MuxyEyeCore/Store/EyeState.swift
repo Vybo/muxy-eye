@@ -30,7 +30,8 @@ extension PendingItem {
         guard case .question(let request) = kind,
               let question = request.questions.first(where: { $0.question == text })
         else { return nil }
-        return PendingItem(kind: .question(QuestionRequest(questions: [question])), receivedAt: receivedAt, sawBlocked: sawBlocked)
+        let single = QuestionRequest(questions: [question], toolUseID: request.toolUseID)
+        return PendingItem(kind: .question(single), receivedAt: receivedAt, sawBlocked: sawBlocked)
     }
 }
 

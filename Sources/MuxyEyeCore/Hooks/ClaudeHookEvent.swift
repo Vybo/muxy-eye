@@ -14,11 +14,26 @@ public struct Question: Sendable, Equatable {
 
 public struct QuestionRequest: Sendable, Equatable {
     public let questions: [Question]
+    /// The `tool_use_id` of the `AskUserQuestion` call, which its `PostToolUse` repeats.
+    public let toolUseID: String?
+
+    public init(questions: [Question], toolUseID: String? = nil) {
+        self.questions = questions
+        self.toolUseID = toolUseID
+    }
 }
 
 public struct PermissionRequest: Sendable, Equatable {
     public let toolName: String
     public let toolInput: JSONValue
+    /// Set when a subagent asks. Claude sends `agent_id` only for tool calls inside a subagent.
+    public let agentID: String?
+
+    public init(toolName: String, toolInput: JSONValue, agentID: String? = nil) {
+        self.toolName = toolName
+        self.toolInput = toolInput
+        self.agentID = agentID
+    }
 
     public var title: String {
         switch toolName {
@@ -42,13 +57,28 @@ public struct PermissionRequest: Sendable, Equatable {
     }
 }
 
+/// A finished tool call, from `PostToolUse`.
+public struct ToolUse: Sendable, Equatable {
+    public let toolName: String
+    public let toolInput: JSONValue
+    public let toolUseID: String?
+    public let agentID: String?
+
+    public init(toolName: String, toolInput: JSONValue, toolUseID: String?, agentID: String?) {
+        self.toolName = toolName
+        self.toolInput = toolInput
+        self.toolUseID = toolUseID
+        self.agentID = agentID
+    }
+}
+
 public enum ClaudeHookEvent: Sendable, Equatable {
     case sessionStart(claudeSessionID: String)
     case sessionEnd
     case userPromptSubmit
     case permission(PermissionRequest)
     case question(QuestionRequest)
-    case postToolUse(toolName: String)
+    case postToolUse(ToolUse)
     case notification(type: String, message: String)
     case stop(lastAssistantMessage: String?)
 }
@@ -60,7 +90,7 @@ public struct HookEvent: Sendable, Equatable {
 }
 
 public enum HookDecoder {
-    private static let askUserQuestion = "AskUserQuestion"
+    static let askUserQuestion = "AskUserQuestion"
 
     public static func decode(_ envelope: HookEnvelope) -> HookEvent? {
         let payload = envelope.payload
@@ -73,6 +103,8 @@ public enum HookDecoder {
 
     private static func decodeEvent(name: String, payload: JSONValue, claudeSessionID: String?) -> ClaudeHookEvent? {
         let toolName = payload["tool_name"]?.stringValue
+        let toolUseID = payload["tool_use_id"]?.stringValue
+        let agentID = payload["agent_id"]?.stringValue
         switch name {
         case "SessionStart":
             return claudeSessionID.map { .sessionStart(claudeSessionID: $0) }
@@ -82,12 +114,18 @@ public enum HookDecoder {
             return .userPromptSubmit
         case "PermissionRequest":
             guard let toolName, toolName != askUserQuestion else { return nil }
-            return .permission(PermissionRequest(toolName: toolName, toolInput: payload["tool_input"] ?? .null))
+            return .permission(PermissionRequest(toolName: toolName, toolInput: payload["tool_input"] ?? .null, agentID: agentID))
         case "PreToolUse":
             guard toolName == askUserQuestion, let input = payload["tool_input"] else { return nil }
-            return .question(decodeQuestions(input))
+            return .question(decodeQuestions(input, toolUseID: toolUseID))
         case "PostToolUse":
-            return toolName.map { .postToolUse(toolName: $0) }
+            guard let toolName else { return nil }
+            return .postToolUse(ToolUse(
+                toolName: toolName,
+                toolInput: payload["tool_input"] ?? .null,
+                toolUseID: toolUseID,
+                agentID: agentID
+            ))
         case "Notification":
             return .notification(
                 type: payload["notification_type"]?.stringValue ?? "",
@@ -100,7 +138,7 @@ public enum HookDecoder {
         }
     }
 
-    private static func decodeQuestions(_ input: JSONValue) -> QuestionRequest {
+    private static func decodeQuestions(_ input: JSONValue, toolUseID: String?) -> QuestionRequest {
         let questions = (input["questions"]?.arrayValue ?? []).compactMap { item -> Question? in
             guard let text = item["question"]?.stringValue else { return nil }
             let options = (item["options"]?.arrayValue ?? []).compactMap { option -> QuestionOption? in
@@ -114,6 +152,6 @@ public enum HookDecoder {
                 multiSelect: item["multiSelect"]?.boolValue ?? false
             )
         }
-        return QuestionRequest(questions: questions)
+        return QuestionRequest(questions: questions, toolUseID: toolUseID)
     }
 }
