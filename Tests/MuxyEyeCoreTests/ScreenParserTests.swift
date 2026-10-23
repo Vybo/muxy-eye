@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import MuxyEyeCore
 
@@ -85,5 +86,61 @@ import Testing
     @Test func parsesBashRmPermission() throws {
         guard case .permission(_, let body, _, _) = ScreenParser.parse(try screen("permission-bash-rm")) else { Issue.record("no prompt"); return }
         #expect(body.contains("rm spike-ok.txt"))
+    }
+
+    // MARK: Idle prompt and the cursor
+
+    func suggestion() throws -> (text: String, row: Int, col: Int) {
+        let cursor = try JSONDecoder().decode([String: Int].self, from: Fixture.data("screens/idle-with-suggestion.cursor.json"))
+        return (try screen("idle-with-suggestion"), try #require(cursor["row"]), try #require(cursor["col"]))
+    }
+
+    @Test func idleWithSuggestionIsIdleWhenTheCursorIsRightAfterThePromptMarker() throws {
+        let s = try suggestion()
+        #expect(ScreenParser.parse(s.text) == nil)
+        #expect(ScreenParser.isAtIdlePrompt(s.text, cursor: (row: s.row, col: s.col)))
+    }
+
+    @Test func textBeforeTheCursorIsNotIdle() throws {
+        let s = try suggestion()
+        #expect(!ScreenParser.isAtIdlePrompt(s.text, cursor: (row: s.row, col: s.col + 8)))
+        #expect(!ScreenParser.isAtIdlePrompt(s.text, cursor: (row: s.row, col: 0)))
+    }
+
+    @Test func cursorOffThePromptLineIsNotIdle() throws {
+        let s = try suggestion()
+        #expect(!ScreenParser.isAtIdlePrompt(s.text, cursor: (row: s.row + 2, col: s.col)))
+        #expect(!ScreenParser.isAtIdlePrompt(s.text, cursor: (row: 5, col: 2)))
+        #expect(!ScreenParser.isAtIdlePrompt(s.text, cursor: (row: 0, col: 2)))
+        #expect(!ScreenParser.isAtIdlePrompt(s.text, cursor: (row: 99, col: 2)))
+    }
+
+    @Test func suggestionWithoutACursorIsNotIdle() throws {
+        #expect(!ScreenParser.isAtIdlePrompt(try suggestion().text))
+        #expect(!ScreenParser.isAtIdlePrompt(try suggestion().text, cursor: nil))
+    }
+
+    @Test func plainSpaceAfterThePromptMarkerIsIdleToo() throws {
+        let s = try suggestion()
+        let text = s.text.replacingOccurrences(of: "❯\u{A0}", with: "❯ ")
+        #expect(text != s.text)
+        #expect(ScreenParser.isAtIdlePrompt(text, cursor: (row: s.row, col: s.col)))
+    }
+
+    @Test func bareIdlePromptWithCursorIsIdle() throws {
+        let text = try screen("idle-after-deny")
+        let row = try #require(text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline).lastIndex { $0 == "❯" })
+        #expect(ScreenParser.isAtIdlePrompt(text, cursor: (row: row, col: 2)))
+        #expect(!ScreenParser.isAtIdlePrompt(text, cursor: (row: row, col: 5)))
+    }
+
+    @Test func promptsAreNeverIdleWhateverTheCursor() throws {
+        for name in ["permission-bash", "question-single", "question-multi", "question-submit-review"] {
+            let text = try screen(name)
+            let lines = text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline)
+            for row in lines.indices where lines[row].hasPrefix("❯") {
+                #expect(!ScreenParser.isAtIdlePrompt(text, cursor: (row: row, col: 2)), "\(name) row \(row)")
+            }
+        }
     }
 }

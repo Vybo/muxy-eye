@@ -39,9 +39,10 @@ public struct MuxyCLI: MuxyControlling {
         try decode(MuxyBuildInfo.self, from: await run(["--build-info"]))
     }
 
-    public func readScreen(_ session: MuxySessionID) async throws -> String {
-        let data = try await run(["session", "read-screen", session.rawValue, "--lines", "200"])
-        return String(decoding: data, as: UTF8.self)
+    public func readScreenState(_ session: MuxySessionID) async throws -> ScreenState {
+        let data = try await run(["session", "read-screen", session.rawValue, "--lines", "200", "--json"])
+        let payload = try decode(ReadScreenPayload.self, from: data)
+        return ScreenState(text: payload.text, cursorRow: payload.cursor.row, cursorCol: payload.cursor.col)
     }
 
     public func send(_ session: MuxySessionID, text: String) async throws {
@@ -59,6 +60,16 @@ public struct MuxyCLI: MuxyControlling {
 
     public func openInDesktop(directory: String) async throws {
         _ = try await run([directory])
+    }
+
+    private struct ReadScreenPayload: Decodable {
+        struct Cursor: Decodable {
+            let row: Int
+            let col: Int
+        }
+
+        let text: String
+        let cursor: Cursor
     }
 
     private func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {

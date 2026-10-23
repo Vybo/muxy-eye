@@ -90,12 +90,29 @@ import Testing
         #expect(await h.cli.serverStatus() == .stopped)
     }
 
-    @Test func readScreenReturnsLargeOutput() async throws {
-        let h = try Harness(extra: "if [ \"$2\" = \"read-screen\" ]; then yes 'line of screen text' | head -n 20000; exit 0; fi")
+    @Test func readScreenStateDecodesTextAndCursor() async throws {
+        let h = try Harness(extra: "if [ \"$2\" = \"read-screen\" ]; then cat \"$FIXTURES/read-screen-idle-with-suggestion.json\"; exit 0; fi")
         defer { h.cleanup() }
-        let screen = try await h.cli.readScreen(MuxySessionID("42"))
-        #expect(screen.split(separator: "\n").count == 20000)
-        #expect(h.calls() == [["session", "read-screen", "42", "--lines", "200"]])
+        let state = try await h.cli.readScreenState(MuxySessionID("42"))
+        #expect(state.cursorRow == 16)
+        #expect(state.cursorCol == 2)
+        #expect(state.text == (try Fixture.text("screens/idle-with-suggestion.txt")))
+        #expect(h.calls() == [["session", "read-screen", "42", "--lines", "200", "--json"]])
+    }
+
+    @Test func readScreenStateHandlesLargeOutput() async throws {
+        let big = "printf '{\"text\":\"'; yes 'line of screen text\\n' | head -n 20000 | tr -d '\\n'; printf '\",\"cursor\":{\"row\":3,\"col\":7}}'"
+        let h = try Harness(extra: "if [ \"$2\" = \"read-screen\" ]; then \(big); exit 0; fi")
+        defer { h.cleanup() }
+        let state = try await h.cli.readScreenState(MuxySessionID("42"))
+        #expect(state.text.split(separator: "\n").count == 20000)
+        #expect(state.cursorRow == 3 && state.cursorCol == 7)
+    }
+
+    @Test func readScreenStateWithoutCursorThrows() async throws {
+        let h = try Harness(extra: "if [ \"$2\" = \"read-screen\" ]; then echo '{\"text\":\"x\"}'; exit 0; fi")
+        defer { h.cleanup() }
+        await #expect(throws: (any Error).self) { try await h.cli.readScreenState(MuxySessionID("42")) }
     }
 
     @Test func sendPassesEscapeSequenceAsSingleArgument() async throws {

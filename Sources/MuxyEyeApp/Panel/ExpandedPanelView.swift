@@ -81,7 +81,7 @@ private struct SessionDetailView: View {
 
     var body: some View {
         let state = model.state
-        let screenText = model.latestScreen[record.id]
+        let screenText = model.latestScreen[record.id]?.text
         let screen = screenText.flatMap(ScreenParser.parse)
         let waiting = state.isWaiting(record)
         VStack(alignment: .leading, spacing: 10) {

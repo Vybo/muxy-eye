@@ -110,4 +110,88 @@ import Testing
         #expect(outcomes.filter { $0 == .delivered }.count == 1)
         #expect(await sends(muxy) == ["send:s1:1"])
     }
+
+    // MARK: Prompt suggestions
+
+    func suggestionScreen(colOffset: Int = 0) throws -> ScreenState {
+        let cursor = try JSONDecoder().decode([String: Int].self, from: Fixture.data("screens/idle-with-suggestion.cursor.json"))
+        return ScreenState(
+            text: try Fixture.text("screens/idle-with-suggestion.txt"),
+            cursorRow: try #require(cursor["row"]),
+            cursorCol: try #require(cursor["col"]) + colOffset
+        )
+    }
+
+    let finished = PendingItem(kind: .finished(message: "Done."), receivedAt: .now, sawBlocked: false)
+
+    @Test func replyIsTypedWhileClaudeShowsASuggestion() async throws {
+        let muxy = FakeMuxy()
+        await muxy.setScreenStates([try suggestionScreen()])
+        await muxy.setActivity([snapshot(.working)])
+        let outcome = await makeExecutor(muxy).perform(.reply("next step"), pending: finished, session: session)
+        #expect(outcome == .delivered)
+        #expect(await sends(muxy) == ["send:s1:next step", "sendKey:s1:Enter"])
+    }
+
+    @Test func replyIsNotTypedOverADraft() async throws {
+        let muxy = FakeMuxy()
+        await muxy.setScreenStates([try suggestionScreen(colOffset: 6)])
+        await muxy.setActivity([snapshot(.idle)])
+        let outcome = await makeExecutor(muxy).perform(.reply("next step"), pending: finished, session: session)
+        #expect(outcome == .promptChanged)
+        #expect(await sends(muxy).isEmpty)
+    }
+
+    @Test func denyFeedbackWaitsForAnIdlePromptWithASuggestion() async throws {
+        let muxy = FakeMuxy()
+        let bash = FakeMuxy.withClaudeCursor(try Fixture.text("screens/permission-bash.txt"))
+        await muxy.setScreenStates([bash, bash, try suggestionScreen()])
+        await muxy.setActivity([snapshot(.working)])
+        let outcome = await makeExecutor(muxy).perform(.deny(feedback: "use trash"), pending: try pending("permission-request-bash"), session: session)
+        #expect(outcome == .delivered)
+        #expect(await sends(muxy) == ["send:s1:4", "send:s1:use trash", "sendKey:s1:Enter"])
+    }
+
+    // MARK: Several questions at once
+
+    func twoQuestions() throws -> PendingItem {
+        guard case .question(let color) = try pending("pre-tool-use-question-single").kind,
+              case .question(let platforms) = try pending("pre-tool-use-question-multi").kind
+        else { throw Fixture.FixtureError.missing("questions") }
+        let request = QuestionRequest(questions: color.questions + platforms.questions)
+        return PendingItem(kind: .question(request), receivedAt: .now, sawBlocked: true)
+    }
+
+    @Test func nextQuestionOnScreenConfirmsWhileStillBlocked() async throws {
+        let muxy = FakeMuxy()
+        await muxy.setScreens([try Fixture.text("screens/question-single.txt"), try Fixture.text("screens/question-multi.txt")])
+        await muxy.setActivity([snapshot(.blocked)])
+        let outcome = await makeExecutor(muxy, timeout: .milliseconds(500)).perform(.option(2), pending: try twoQuestions(), session: session)
+        #expect(outcome == .delivered)
+        #expect(await sends(muxy) == ["send:s1:2"])
+    }
+
+    @Test func submitReviewOnScreenConfirmsWhileStillBlocked() async throws {
+        let muxy = FakeMuxy()
+        await muxy.setScreens([try Fixture.text("screens/question-single.txt"), try Fixture.text("screens/question-submit-review.txt")])
+        await muxy.setActivity([snapshot(.blocked)])
+        let outcome = await makeExecutor(muxy, timeout: .milliseconds(500)).perform(.option(1), pending: try twoQuestions(), session: session)
+        #expect(outcome == .delivered)
+    }
+
+    @Test func sameQuestionStillOnScreenIsNotConfirmed() async throws {
+        let muxy = FakeMuxy()
+        await muxy.setScreens([try Fixture.text("screens/question-single.txt")])
+        await muxy.setActivity([snapshot(.blocked)])
+        let outcome = await makeExecutor(muxy, timeout: .milliseconds(300)).perform(.option(2), pending: try twoQuestions(), session: session)
+        #expect(outcome == .notConfirmed)
+    }
+
+    @Test func permissionIsNotConfirmedByAQuestionScreen() async throws {
+        let muxy = FakeMuxy()
+        await muxy.setScreens([try Fixture.text("screens/permission-bash.txt"), try Fixture.text("screens/question-single.txt")])
+        await muxy.setActivity([snapshot(.blocked)])
+        let outcome = await makeExecutor(muxy, timeout: .milliseconds(300)).perform(.option(1), pending: try pending("permission-request-bash"), session: session)
+        #expect(outcome == .notConfirmed)
+    }
 }

@@ -22,7 +22,8 @@ public protocol MuxyControlling: Sendable {
     func activity() async throws -> ActivitySnapshot
     func sessions() async throws -> [MuxySessionInfo]
     func projects() async throws -> [MuxyProject]
-    func readScreen(_ session: MuxySessionID) async throws -> String
+    /// The visible screen and cursor (`session read-screen --json`).
+    func readScreenState(_ session: MuxySessionID) async throws -> ScreenState
     func send(_ session: MuxySessionID, text: String) async throws
     func sendKey(_ session: MuxySessionID, _ key: NamedKey) async throws
     func ack(eventIDs: [String]) async throws

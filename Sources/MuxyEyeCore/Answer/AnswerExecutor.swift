@@ -39,12 +39,13 @@ public actor AnswerExecutor {
     }
 
     private func run(_ answer: UserAnswer, pending: PendingItem, session: MuxySessionID) async throws -> AnswerOutcome {
-        let screenText = try await muxy.readScreen(session)
+        let screen = try await muxy.readScreenState(session)
+        let prompt = ScreenParser.parse(screen.text)
         let plan = AnswerPlanner.steps(
             for: answer,
             pending: pending,
-            screen: ScreenParser.parse(screenText),
-            idlePrompt: ScreenParser.isAtIdlePrompt(screenText)
+            screen: prompt,
+            idlePrompt: screen.isAtIdlePrompt
         )
         let steps: [AnswerStep]
         switch plan {
@@ -65,11 +66,11 @@ public actor AnswerExecutor {
                 try await muxy.sendKey(session, key)
                 lastWasKeystroke = true
             case .expectIdlePrompt:
-                guard try await waitForScreen(session, { ScreenParser.isAtIdlePrompt($0) }) else { return .notConfirmed }
+                guard try await waitForScreen(session, { $0.isAtIdlePrompt }) else { return .notConfirmed }
                 lastWasKeystroke = false
             case .expectSubmitReview:
                 let reached = try await waitForScreen(session) {
-                    if case .submitReview? = ScreenParser.parse($0) { return true }
+                    if case .submitReview? = ScreenParser.parse($0.text) { return true }
                     return false
                 }
                 guard reached else { return .notConfirmed }
@@ -77,23 +78,32 @@ public actor AnswerExecutor {
             }
         }
 
-        return try await confirm(answer, session: session) ? .delivered : .notConfirmed
+        return try await confirm(answer, answeredQuestion: answeredQuestion(pending, on: prompt), session: session)
+            ? .delivered : .notConfirmed
+    }
+
+    /// The question text an answer went to, when the pending item is a question.
+    private func answeredQuestion(_ pending: PendingItem, on prompt: ScreenPrompt?) -> String? {
+        guard case .question = pending.kind, case .question(_, let text, _, _)? = prompt else { return nil }
+        return text
     }
 
     private func pauseBetweenSteps() async throws {
         if stepDelay != .zero { try await Task.sleep(for: stepDelay) }
     }
 
-    private func waitForScreen(_ session: MuxySessionID, _ condition: (String) -> Bool) async throws -> Bool {
+    private func waitForScreen(_ session: MuxySessionID, _ condition: (ScreenState) -> Bool) async throws -> Bool {
         let deadline = ContinuousClock.now + confirmTimeout
         while true {
-            if condition(try await muxy.readScreen(session)) { return true }
+            if condition(try await muxy.readScreenState(session)) { return true }
             if ContinuousClock.now >= deadline { return false }
             try await Task.sleep(for: pollEvery)
         }
     }
 
-    private func confirm(_ answer: UserAnswer, session: MuxySessionID) async throws -> Bool {
+    /// Waits for Muxy to leave `blocked` (or reach `working` for typed prompts). An answer to one of
+    /// several questions also counts once the screen moves on to another question or the review.
+    private func confirm(_ answer: UserAnswer, answeredQuestion: String?, session: MuxySessionID) async throws -> Bool {
         let needsWorking: Bool
         switch answer {
         case .reply, .deny: needsWorking = true
@@ -103,8 +113,17 @@ public actor AnswerExecutor {
         while true {
             let state = try await muxy.activity().agents.first { $0.session == session }?.state
             if needsWorking ? state == .working : state != .blocked { return true }
+            if let answeredQuestion, try await screenMovedPast(answeredQuestion, session: session) { return true }
             if ContinuousClock.now >= deadline { return false }
             try await Task.sleep(for: pollEvery)
+        }
+    }
+
+    private func screenMovedPast(_ question: String, session: MuxySessionID) async throws -> Bool {
+        switch ScreenParser.parse(try await muxy.readScreenState(session).text) {
+        case .question(_, let text, _, _)?: text != question
+        case .submitReview?: true
+        default: false
         }
     }
 }

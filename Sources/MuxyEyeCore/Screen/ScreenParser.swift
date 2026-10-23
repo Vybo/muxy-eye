@@ -59,16 +59,30 @@ public enum ScreenParser {
         )
     }
 
-    public static func isAtIdlePrompt(_ screen: String) -> Bool {
+    /// Whether Claude is at its input prompt with nothing typed: no prompt block on screen, and the
+    /// input line (`❯`, drawn at column 0 below a rule) is empty up to the cursor. Text after the
+    /// cursor is Claude's dim suggestion and is ignored. Without a cursor the line must be a bare `❯`.
+    public static func isAtIdlePrompt(_ screen: String, cursor: (row: Int, col: Int)? = nil) -> Bool {
         guard parse(screen) == nil else { return false }
         let lines = splitLines(screen)
-        guard let index = lines.lastIndex(where: { trimmed($0).hasPrefix("❯") }),
-              trimmed(lines[index]) == "❯",
-              index > 0,
-              isRule(lines[index - 1])
-        else { return false }
-        return true
+        guard let cursor else {
+            guard let index = lines.lastIndex(where: { trimmed($0).hasPrefix("❯") }),
+                  trimmed(lines[index]) == "❯",
+                  index > 0,
+                  isRule(lines[index - 1])
+            else { return false }
+            return true
+        }
+        guard cursor.row > 0, cursor.row < lines.count, cursor.col == promptInputColumn else { return false }
+        let line = lines[cursor.row]
+        guard line.first == "❯" else { return false }
+        let rest = line.dropFirst()
+        guard rest.isEmpty || rest.first == " " || rest.first == "\u{A0}" else { return false }
+        return isRule(lines[cursor.row - 1])
     }
+
+    /// Claude's input starts after `❯` and one space (a no-break space when a suggestion is shown).
+    private static let promptInputColumn = 2
 
     // MARK: - Helpers
 

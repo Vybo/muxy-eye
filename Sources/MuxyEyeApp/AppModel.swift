@@ -41,7 +41,7 @@ final class AppModel {
     private(set) var state = EyeState()
     private(set) var expanded = false
     var selectedSession: MuxySessionID?
-    private(set) var latestScreen: [MuxySessionID: String] = [:]
+    private(set) var latestScreen: [MuxySessionID: ScreenState] = [:]
     private(set) var lastOutcome: [MuxySessionID: AnswerOutcome] = [:]
     private(set) var answering: Set<MuxySessionID> = []
     private(set) var keyPress: PanelKeyPress?
@@ -146,8 +146,8 @@ final class AppModel {
         guard let screen = latestScreen[session] else { return false }
         return AnswerPlanner.matches(
             pending,
-            screen: ScreenParser.parse(screen),
-            idlePrompt: ScreenParser.isAtIdlePrompt(screen)
+            screen: ScreenParser.parse(screen.text),
+            idlePrompt: screen.isAtIdlePrompt
         )
     }
 
@@ -174,6 +174,7 @@ final class AppModel {
         let outcome = await executor.perform(answer, pending: pending, session: session)
         lastOutcome[session] = outcome
         if outcome == .delivered {
+            if await showsNextQuestion(of: pending, session: session) { return }
             handle(apply([.answered(session, at: .now)]))
             wake()
         } else {
@@ -182,6 +183,15 @@ final class AppModel {
             }
             await loadScreen(session)
         }
+    }
+
+    /// After one of several questions is answered, Claude shows the next one. The pending item stays,
+    /// so that question can be answered here too; it clears when Claude moves on.
+    private func showsNextQuestion(of pending: PendingItem, session: MuxySessionID) async -> Bool {
+        guard case .question(let request) = pending.kind, request.questions.count > 1 else { return false }
+        await loadScreen(session)
+        guard let screen = latestScreen[session] else { return false }
+        return request.current(on: ScreenParser.parse(screen.text)) != nil
     }
 
     func dismiss(_ session: MuxySessionID) {
@@ -213,7 +223,7 @@ final class AppModel {
     func loadScreen(_ session: MuxySessionID) async {
         guard let muxy, await muxy.serverStatus() == .running else { return }
         do {
-            latestScreen[session] = try await muxy.readScreen(session)
+            latestScreen[session] = try await muxy.readScreenState(session)
         } catch {
             Self.log.error("read-screen failed for \(session.rawValue, privacy: .public): \(String(describing: error), privacy: .public)")
         }
