@@ -13,18 +13,28 @@ struct QuestionDetailView: View {
 
     @State private var selection: Set<Int> = []
     @State private var freeText = ""
+    /// How often each option, and Submit, has sent an answer, to flash it each time.
+    @State private var flashes: [Int: Int] = [:]
+    @State private var submitFlashes = 0
 
     var body: some View {
         let current = answerableQuestion
         let shown = current ?? request.current(on: screen) ?? request.questions.first
         let busy = model.answering.contains(session)
         VStack(alignment: .leading, spacing: 8) {
-            if let shown {
-                Text(verbatim: shown.question)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(PanelTheme.text)
-                    .fixedSize(horizontal: false, vertical: true)
+            // The next of several questions fades in over the one just answered. Only the text is
+            // swapped: the controls stay, so a field that has focus keeps it.
+            ZStack(alignment: .topLeading) {
+                if let shown {
+                    Text(verbatim: shown.question)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(PanelTheme.text)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .id(shown.question)
+                        .transition(.opacity)
+                }
             }
+            .animation(PanelMotion().promptSwap.animation, value: shown?.question)
             if let current {
                 if isMultiSelect {
                     multiSelect(current, busy: busy)
@@ -51,9 +61,10 @@ struct QuestionDetailView: View {
                     label: option.label,
                     description: option.description,
                     isDefault: index == 0,
-                    disabled: busy
+                    disabled: busy,
+                    flash: flashes[index + 1, default: 0]
                 ) {
-                    send(.option(index + 1), to: question)
+                    pick(index + 1, in: question)
                 }
             }
         }
@@ -81,8 +92,8 @@ struct QuestionDetailView: View {
         }
         HStack {
             Spacer()
-            PanelButton(title: "Submit", disabled: selection.isEmpty || busy) {
-                send(.multiSelect(selection), to: question)
+            PanelButton(title: "Submit", disabled: selection.isEmpty || busy, flash: submitFlashes) {
+                submit(question)
             }
         }
     }
@@ -109,14 +120,25 @@ struct QuestionDetailView: View {
         switch key {
         case .digit(let number):
             guard number >= 1, number <= count else { return }
-            if isMultiSelect { toggle(number) } else { send(.option(number), to: question) }
+            if isMultiSelect { toggle(number) } else { pick(number, in: question) }
         case .primary:
             if isMultiSelect {
-                if !selection.isEmpty { send(.multiSelect(selection), to: question) }
+                if !selection.isEmpty { submit(question) }
             } else if count > 0 {
-                send(.option(1), to: question)
+                pick(1, in: question)
             }
         }
+    }
+
+    /// Flashes the picked option, unless an answer is already going out, and sends it.
+    private func pick(_ number: Int, in question: Question) {
+        if !model.answering.contains(session) { flashes[number, default: 0] += 1 }
+        send(.option(number), to: question)
+    }
+
+    private func submit(_ question: Question) {
+        if !model.answering.contains(session) { submitFlashes += 1 }
+        send(.multiSelect(selection), to: question)
     }
 
     private func toggle(_ number: Int) {

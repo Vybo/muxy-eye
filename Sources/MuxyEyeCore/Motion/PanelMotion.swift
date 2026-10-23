@@ -15,6 +15,21 @@ public struct Pop: Sendable, Equatable {
     public var totalTime: Double { rise + fall }
 }
 
+/// A brief highlight: up to `opacity` over `rise` seconds, gone again after `fall`.
+public struct Flash: Sendable, Equatable {
+    public var opacity: Double
+    public var rise: Double
+    public var fall: Double
+
+    public init(opacity: Double, rise: Double, fall: Double) {
+        self.opacity = opacity
+        self.rise = rise
+        self.fall = fall
+    }
+
+    public var totalTime: Double { rise + fall }
+}
+
 /// The eye's animations, after the approved "island spring" mockup: the eye stretches into the
 /// panel with a slight overshoot and the content cascades in; closing fades the content out, then
 /// pulls the shape back into the eye without overshoot.
@@ -78,6 +93,20 @@ public struct PanelMotion: Sendable, Equatable {
 
     /// Rows arriving, leaving or changing places.
     public var railChange: Motion { Motion(.spring(response: 0.35, dampingFraction: 0.9)) }
+
+    // MARK: Answering
+
+    /// The option or button the user picked lighting up as the answer goes out.
+    public var answerFlash: Flash { Flash(opacity: 0.35, rise: 0.04, fall: 0.11) }
+
+    /// The prompt fading out and the next state fading in.
+    public var promptSwap: Motion { Motion(.easeOut(duration: 0.15)) }
+
+    /// An outcome banner arriving under the header, or leaving.
+    public var banner: Motion { Motion(.spring(response: 0.3, dampingFraction: 0.9)) }
+
+    /// Whether banners slide in and out as well as fading.
+    public var bannerSlides: Bool { true }
 
     // MARK: Settling
 

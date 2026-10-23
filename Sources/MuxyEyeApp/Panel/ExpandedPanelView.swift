@@ -89,33 +89,49 @@ private struct SessionDetailView: View {
         let screenText = model.latestScreen[record.id]?.text
         let screen = screenText.flatMap(ScreenParser.parse)
         let waiting = state.isWaiting(record)
+        let motion = PanelMotion()
+        let banner = AnswerBanner.message(for: model.lastOutcome[record.id])
         VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(verbatim: SessionPresentation.displayName(for: record))
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(PanelTheme.text)
-                Text(verbatim: SessionPresentation.headerDetail(for: record))
-                    .font(.system(size: 11))
-                    .foregroundStyle(PanelTheme.secondaryText)
-            }
-            .lineLimit(1)
+            // Opaque and on top, so a banner slides out from under it.
+            VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(verbatim: SessionPresentation.displayName(for: record))
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(PanelTheme.text)
+                    Text(verbatim: SessionPresentation.headerDetail(for: record))
+                        .font(.system(size: 11))
+                        .foregroundStyle(PanelTheme.secondaryText)
+                }
+                .lineLimit(1)
 
-            if let label = SessionPresentation.kindLabel(for: record, in: state, screen: screen) {
-                Text(verbatim: label)
-                    .font(.system(size: 10.5, weight: .bold))
-                    .tracking(0.6)
-                    .foregroundStyle(PanelTheme.waiting)
-                    .lineLimit(1)
+                if let label = SessionPresentation.kindLabel(for: record, in: state, screen: screen) {
+                    Text(verbatim: label)
+                        .font(.system(size: 10.5, weight: .bold))
+                        .tracking(0.6)
+                        .foregroundStyle(PanelTheme.waiting)
+                        .lineLimit(1)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(PanelTheme.background)
+            .zIndex(1)
+
+            if let banner {
+                BannerView(message: banner, action: openInMuxy)
+                    .id(banner)
+                    .transition(motion.bannerSlides ? .move(edge: .top).combined(with: .opacity) : .opacity)
             }
 
-            if let message = AnswerBanner.message(for: model.lastOutcome[record.id]) {
-                BannerView(message: message, action: openInMuxy)
+            // The prompt fades out as the next state fades in over it.
+            ZStack(alignment: .topLeading) {
+                prompt(screenText: screenText, screen: screen, waiting: waiting)
             }
-
-            prompt(screenText: screenText, screen: screen, waiting: waiting)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .animation(motion.promptSwap.animation, value: PromptKey(pending: record.pending?.receivedAt, waiting: waiting))
 
             OpenInMuxyButton(action: openInMuxy)
         }
+        .animation(motion.banner.animation, value: banner)
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -139,10 +155,13 @@ private struct SessionDetailView: View {
                 }
             }
             .id(pending.receivedAt)
+            .transition(.opacity)
         } else if waiting {
             ScreenFallbackView(screen: screenText)
+                .transition(.opacity)
         } else {
             SessionStatusView(record: record)
+                .transition(.opacity)
         }
     }
 
@@ -164,6 +183,12 @@ private struct SessionDetailView: View {
         let session = record.id
         Task { await model.openInMuxy(session) }
     }
+}
+
+/// Which prompt the detail shows: a new one, or none, fades the old one out.
+private struct PromptKey: Equatable {
+    let pending: Date?
+    let waiting: Bool
 }
 
 /// What makes the selected session's screen worth reading again.

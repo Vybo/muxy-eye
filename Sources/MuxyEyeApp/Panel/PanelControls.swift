@@ -24,9 +24,12 @@ struct OptionButton: View {
     var description: String?
     var isDefault = false
     var disabled = false
+    /// Changes each time the option is picked, which flashes it.
+    var flash = 0
     let action: () -> Void
 
     var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
         Button(action: action) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text("\(number)")
@@ -50,8 +53,9 @@ struct OptionButton: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isDefault ? PanelTheme.waiting : PanelTheme.card, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .background(isDefault ? PanelTheme.waiting : PanelTheme.card, in: shape)
+            .answerFlash(flash, cornerRadius: 8, flash: PanelMotion().answerFlash)
+            .contentShape(shape)
         }
         .buttonStyle(.plain)
         .disabled(disabled)
@@ -135,17 +139,21 @@ struct AnswerField: View {
 struct PanelButton: View {
     let title: String
     var disabled = false
+    /// Changes each time the button sends an answer, which flashes it.
+    var flash = 0
     let action: () -> Void
 
     var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
         Button(action: action) {
             Text(title)
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(PanelTheme.text)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 7)
-                .background(PanelTheme.divider, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .background(PanelTheme.divider, in: shape)
+                .answerFlash(flash, cornerRadius: 8, flash: PanelMotion().answerFlash)
+                .contentShape(shape)
         }
         .buttonStyle(.plain)
         .disabled(disabled)

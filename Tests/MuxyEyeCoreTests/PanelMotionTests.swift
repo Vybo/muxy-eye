@@ -98,6 +98,28 @@ import Testing
         #expect(overflow <= PanelMotion.overshootMargin(forTravel: 0))
     }
 
+    @Test func pickedAnswerFlashesForAboutASixthOfASecond() {
+        let flash = motion.answerFlash
+        #expect(abs(flash.totalTime - 0.15) < 0.01)
+        #expect(flash.rise < flash.fall)
+        #expect(flash.opacity > 0.2)
+        #expect(flash.opacity <= 0.5)
+    }
+
+    @Test func promptFadesQuicklyToTheNextState() {
+        let swap = motion.promptSwap
+        #expect(swap.delay == 0)
+        #expect(swap.curve.overshoot == 0)
+        #expect(swap.totalTime <= 0.2)
+    }
+
+    @Test func bannersSlideFromUnderTheHeaderAndSettleQuickly() {
+        #expect(motion.bannerSlides)
+        #expect(motion.banner.delay == 0)
+        #expect(motion.banner.curve.overshoot < 0.01)
+        #expect(motion.banner.totalTime < 0.5)
+    }
+
     @Test(arguments: [100.0, 600.0, 900.0])
     func marginCoversTheOpeningOvershoot(travel: Double) throws {
         let open = try #require(motion.shapeOpen)

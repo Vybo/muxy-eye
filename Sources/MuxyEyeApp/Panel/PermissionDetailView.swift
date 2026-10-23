@@ -13,6 +13,8 @@ struct PermissionDetailView: View {
     let screen: ScreenPrompt?
 
     @State private var feedback = ""
+    /// How often each option has been picked, to flash it each time.
+    @State private var flashes: [Int: Int] = [:]
 
     var body: some View {
         let options = answerableOptions
@@ -40,9 +42,10 @@ struct PermissionDetailView: View {
                             number: option.number,
                             label: option.label,
                             isDefault: option.number == 1,
-                            disabled: busy
+                            disabled: busy,
+                            flash: flashes[option.number, default: 0]
                         ) {
-                            send(.option(option.number))
+                            pick(option.number)
                         }
                     }
                 }
@@ -57,9 +60,9 @@ struct PermissionDetailView: View {
             guard let press, !options.isEmpty else { return }
             switch press.kind {
             case .digit(let number):
-                if options.contains(where: { $0.number == number }) { send(.option(number)) }
+                if options.contains(where: { $0.number == number }) { pick(number) }
             case .primary:
-                if options.contains(where: { $0.number == 1 }) { send(.option(1)) }
+                if options.contains(where: { $0.number == 1 }) { pick(1) }
             }
         }
     }
@@ -70,6 +73,12 @@ struct PermissionDetailView: View {
               case .permission(_, _, _, let options)? = screen
         else { return [] }
         return options
+    }
+
+    /// Flashes the picked option, unless an answer is already going out, and sends it.
+    private func pick(_ number: Int) {
+        if !model.answering.contains(session) { flashes[number, default: 0] += 1 }
+        send(.option(number))
     }
 
     private func send(_ answer: UserAnswer) {

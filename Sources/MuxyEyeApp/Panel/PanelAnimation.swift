@@ -21,10 +21,35 @@ extension View {
             .animation((visible ? show : hide)?.animation, value: visible)
     }
 
+    /// Lights the view up briefly, as a rounded rectangle, each time `trigger` changes.
+    func answerFlash(_ trigger: Int, cornerRadius: CGFloat, flash: Flash) -> some View {
+        modifier(AnswerFlash(trigger: trigger, cornerRadius: cornerRadius, flash: flash))
+    }
+
     /// Places the view at `rect`, in the top-left coordinates of the stage it is drawn on.
     func place(in rect: CGRect) -> some View {
         frame(width: rect.width, height: rect.height)
             .position(x: rect.midX, y: rect.midY)
+    }
+}
+
+/// The highlight of a picked answer. Nothing runs between flashes.
+private struct AnswerFlash: ViewModifier {
+    let trigger: Int
+    let cornerRadius: CGFloat
+    let flash: Flash
+
+    func body(content: Content) -> some View {
+        content.keyframeAnimator(initialValue: 0.0, trigger: trigger) { view, opacity in
+            view.overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(Color.white.opacity(opacity))
+                    .allowsHitTesting(false)
+            }
+        } keyframes: { _ in
+            LinearKeyframe(flash.opacity, duration: flash.rise)
+            LinearKeyframe(0, duration: flash.fall)
+        }
     }
 }
 
