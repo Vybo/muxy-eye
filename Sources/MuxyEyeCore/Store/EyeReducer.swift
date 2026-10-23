@@ -18,6 +18,8 @@ public enum EyeEffect: Sendable, Equatable {
 public enum EyeReducer {
     public static let provisionalGrace: TimeInterval = 5
     public static let neverBlockedExpiry: TimeInterval = 10
+    public static let finishedGrace: TimeInterval = 5
+    private static let finishedEventSkew: TimeInterval = 2
 
     public static func reduce(_ state: inout EyeState, _ action: EyeAction) -> [EyeEffect] {
         switch action {
@@ -73,7 +75,7 @@ public enum EyeReducer {
 
         for agent in snapshot.agents {
             let existing = state.sessions[agent.session]
-            if existing == nil { sawNewSession = true }
+            if existing == nil || existing?.provisionalSince != nil { sawNewSession = true }
             let wasWaiting = existing.map(state.isWaiting) ?? false
             var record = existing ?? SessionRecord(id: agent.session, provider: agent.provider, projectID: agent.project)
             record.provider = agent.provider
@@ -87,14 +89,14 @@ public enum EyeReducer {
                 record.blockedSince = nil
             }
 
-            let hadUnreadCompleted = record.unreadCompletedEventID != nil
             let unread = snapshot.events.filter { $0.session == agent.session && !$0.read }
             record.unreadEventIDs = unread.map(\.id)
             let completed = unread.first { $0.kind == .completed }
             record.unreadCompletedEventID = completed?.id
             record.unreadCompletedAt = completed.map { Date(timeIntervalSince1970: TimeInterval($0.timestamp)) }
 
-            updatePending(&record, hadUnreadCompleted: hadUnreadCompleted, now: now)
+            let completedEvents = snapshot.events.filter { $0.session == agent.session && $0.kind == .completed }
+            updatePending(&record, completedEvents: completedEvents, now: now)
             applyNames(state, &record)
             state.sessions[agent.session] = record
 
@@ -109,7 +111,7 @@ public enum EyeReducer {
         return effects
     }
 
-    private static func updatePending(_ record: inout SessionRecord, hadUnreadCompleted: Bool, now: Date) {
+    private static func updatePending(_ record: inout SessionRecord, completedEvents: [ActivityEvent], now: Date) {
         guard var pending = record.pending else { return }
         switch pending.kind {
         case .permission, .question:
@@ -119,11 +121,12 @@ public enum EyeReducer {
             let expired = !pending.sawBlocked && settled && now.timeIntervalSince(pending.receivedAt) > neverBlockedExpiry
             record.pending = (resolved || expired) ? nil : pending
         case .finished:
-            if hadUnreadCompleted, record.unreadCompletedEventID == nil {
-                record.pending = nil
-            } else {
-                record.pending = pending
-            }
+            let threshold = pending.receivedAt.timeIntervalSince1970 - finishedEventSkew
+            let relevant = completedEvents.filter { TimeInterval($0.timestamp) >= threshold }
+            let confirmedRead = relevant.contains { $0.read }
+            let hasUnread = relevant.contains { !$0.read }
+            let graceOver = now.timeIntervalSince(pending.receivedAt) > finishedGrace
+            record.pending = (confirmedRead || (!hasUnread && graceOver)) ? nil : pending
         }
     }
 

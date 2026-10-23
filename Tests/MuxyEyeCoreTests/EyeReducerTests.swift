@@ -208,6 +208,35 @@ import Testing
         #expect(s.waitingCount == 2)
     }
 
+    @Test func finishedClearsAfterGraceWhenNoUnreadEvent() throws {
+        var s = EyeState()
+        run(&s, .snapshot(snap([agent("A", .idle)]), at: t(1000)))
+        run(&s, .hook(hook("A", .stop(lastAssistantMessage: "Done.")), at: t(1000)))
+        run(&s, .snapshot(snap([agent("A", .idle)]), at: t(1003)))
+        #expect(try #require(s.sessions[a]).pending != nil)
+        run(&s, .snapshot(snap([agent("A", .idle)]), at: t(1006)))
+        #expect(try #require(s.sessions[a]).pending == nil)
+    }
+
+    @Test func finishedKeptWhileUnreadEventPresent() throws {
+        var s = EyeState()
+        run(&s, .snapshot(snap([agent("A", .idle)]), at: t(1000)))
+        run(&s, .hook(hook("A", .stop(lastAssistantMessage: "Done.")), at: t(1000)))
+        let events = [event("e1", "A", .completed, read: false, ts: 1000)]
+        run(&s, .snapshot(snap([agent("A", .idle)], events: events), at: t(1030)))
+        #expect(try #require(s.sessions[a]).pending != nil)
+    }
+
+    @Test func provisionalSessionConfirmedBySnapshotRefreshesMetadata() throws {
+        var s = EyeState()
+        let x = MuxySessionID("X")
+        run(&s, .hook(hook("X", .sessionStart(claudeSessionID: "c1")), at: t(0)))
+        #expect(try #require(s.sessions[x]).provisionalSince != nil)
+        let effects = run(&s, .snapshot(snap([agent("X", .idle)]), at: t(1)))
+        #expect(effects.contains(.refreshMetadata))
+        #expect(try #require(s.sessions[x]).provisionalSince == nil)
+    }
+
     @Test func worktreeNaming() throws {
         let projects = try JSONDecoder().decode([MuxyProject].self, from: Fixture.data("muxy/project-list.json"))
         let sessions = try JSONDecoder().decode([MuxySessionInfo].self, from: Fixture.data("muxy/session-list.json"))
