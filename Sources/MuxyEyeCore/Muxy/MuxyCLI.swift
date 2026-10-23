@@ -45,7 +45,7 @@ public struct MuxyCLI: MuxyControlling {
     }
 
     public func send(_ session: MuxySessionID, text: String) async throws {
-        _ = try await run(["session", "send", session.rawValue, text])
+        _ = try await run(["session", "send", session.rawValue, "--", text])
     }
 
     public func sendKey(_ session: MuxySessionID, _ key: NamedKey) async throws {

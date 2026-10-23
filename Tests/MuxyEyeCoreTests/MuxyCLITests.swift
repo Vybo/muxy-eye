@@ -16,7 +16,7 @@ import Testing
             let script = """
             #!/bin/sh
             for a in "$@"; do printf '%s\\n' "$a" >> "$MUXY_LOG"; done
-            echo "--" >> "$MUXY_LOG"
+            echo "@@END@@" >> "$MUXY_LOG"
             \(extra)
             case "$1 $2" in
             "activity list") cat "$FIXTURES/activity.json";;
@@ -43,7 +43,7 @@ import Testing
             var result: [[String]] = []
             var current: [String] = []
             for line in text.split(separator: "\n", omittingEmptySubsequences: false).dropLast() {
-                if line == "--" {
+                if line == "@@END@@" {
                     result.append(current)
                     current = []
                 } else {
@@ -102,7 +102,14 @@ import Testing
         let h = try Harness()
         defer { h.cleanup() }
         try await h.cli.send(MuxySessionID("5602690846448319352"), text: "\u{1B}[C")
-        #expect(h.calls() == [["session", "send", "5602690846448319352", "\u{1B}[C"]])
+        #expect(h.calls() == [["session", "send", "5602690846448319352", "--", "\u{1B}[C"]])
+    }
+
+    @Test func sendSeparatesDashLeadingText() async throws {
+        let h = try Harness()
+        defer { h.cleanup() }
+        try await h.cli.send(MuxySessionID("5602690846448319352"), text: "-1 dash")
+        #expect(h.calls() == [["session", "send", "5602690846448319352", "--", "-1 dash"]])
     }
 
     @Test func sendKeyAndAck() async throws {
