@@ -9,8 +9,9 @@ final class EyePanel: NSPanel {
     /// Where the panel's shape is, or is heading, on screen.
     var panelOutline: EyeOutline?
 
-    /// Called for a click beside the expanded panel, which the window gets while it is larger than the
-    /// panel during an animation; elsewhere the click-outside monitor sees such clicks.
+    /// Called for a click in the window but outside the expanded panel's outline: in the window's margin
+    /// while the panel animates, or at rest in the transparent rounded bottom corners. Clicks outside
+    /// the window go to other apps, where the click-outside monitor sees them.
     var onClickOutside: (() -> Void)?
 
     /// The window's drop shadow, only for the expanded panel at rest: the window server computes it

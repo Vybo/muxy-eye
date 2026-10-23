@@ -61,7 +61,10 @@ public struct EyeOutline: Sendable, Equatable {
     }
 
     /// Whether `point`, in screen coordinates (y up, so the top corners are at `maxY`), is inside
-    /// the outline, its rounded corners taken as circular.
+    /// the outline. The corners are taken as circular arcs. The drawn shape uses continuous corners,
+    /// which differ by at most 0.5 pt at these radii (measured: 0.48 pt for the panel's 22 pt
+    /// corners, 0.25 pt for the notch's 10 pt, 0.23 pt for the eye's circle), well below what a
+    /// click can tell apart.
     public func contains(_ point: CGPoint) -> Bool {
         let rect = frame.standardized
         guard point.x >= rect.minX, point.x <= rect.maxX, point.y >= rect.minY, point.y <= rect.maxY else {

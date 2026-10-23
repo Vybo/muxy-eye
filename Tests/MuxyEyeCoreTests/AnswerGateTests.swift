@@ -24,6 +24,32 @@ import Testing
         #expect(opening.revealing(at: at(100), for: 0.15).allowsAnswer(at: at(400)) == false)
     }
 
+    @Test func aViewHoldsAnswersFromWhenItAppears() {
+        var hold = RevealHold(seconds: 0.18)
+        #expect(hold.gate.allowsAnswer(at: start))
+        hold.appeared(at: start)
+        #expect(hold.gate.allowsAnswer(at: at(100)) == false)
+        #expect(hold.gate.allowsAnswer(at: at(180)))
+    }
+
+    @Test func aViewComingBackBeforeItWasGoneHoldsAnswersAgain() {
+        var hold = RevealHold(seconds: 0.18)
+        hold.appeared(at: start)
+        hold.leavingChanged(from: false, to: true, at: at(400))
+        hold.leavingChanged(from: true, to: false, at: at(460))
+        #expect(hold.gate.allowsAnswer(at: at(520)) == false)
+        #expect(hold.gate.allowsAnswer(at: at(640)))
+    }
+
+    @Test func startingToLeaveDoesNotHoldAgain() {
+        var hold = RevealHold(seconds: 0.18)
+        hold.appeared(at: start)
+        hold.leavingChanged(from: false, to: true, at: at(400))
+        #expect(hold.gate.allowsAnswer(at: at(420)))
+        hold.leavingChanged(from: false, to: false, at: at(500))
+        #expect(hold.gate.allowsAnswer(at: at(520)))
+    }
+
     @Test func nestedGatesHoldUntilTheLaterOneOpens() {
         let panel = AnswerGate.open.revealing(at: start, for: 0.66)
         let prompt = AnswerGate.open.revealing(at: at(100), for: 0.15)

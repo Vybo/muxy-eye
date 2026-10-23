@@ -156,8 +156,11 @@ struct QuestionDetailView: View {
         send(.multiSelect(selection), to: question)
     }
 
-    /// Not until the question has faded in: the eye answers only what the user has seen.
-    private var answersAllowed: Bool { answerGate.combined(with: questionGate).allowsAnswer(at: .now) }
+    /// Not until the question has faded in, and never while it fades out: the eye answers only what
+    /// the user sees.
+    private var answersAllowed: Bool {
+        !leaving && answerGate.combined(with: questionGate).allowsAnswer(at: .now)
+    }
 
     private func toggle(_ number: Int) {
         if selection.contains(number) { selection.remove(number) } else { selection.insert(number) }

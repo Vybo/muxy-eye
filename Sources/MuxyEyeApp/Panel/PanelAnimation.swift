@@ -21,27 +21,37 @@ extension EnvironmentValues {
     @Entry var answerGate = AnswerGate.open
 }
 
-/// Holds the answers of what's inside until it has faded in: for `seconds` from when it appears,
-/// on top of any hold from around it.
+/// Holds the answers of what's inside until it has faded in: for `seconds` from when it appears, and
+/// again when it comes back mid-fade-out, on top of any hold from around it.
 private struct AnswerHold: ViewModifier {
-    let seconds: Double
-
     @Environment(\.answerGate) private var outer
-    @State private var own = AnswerGate.open
+    @Environment(\.isLeaving) private var leaving
+    @State private var hold: RevealHold
+
+    init(seconds: Double) {
+        _hold = State(initialValue: RevealHold(seconds: seconds))
+    }
 
     func body(content: Content) -> some View {
         content
-            .environment(\.answerGate, outer.combined(with: own))
-            .onAppear { own = AnswerGate.open.revealing(at: .now, for: seconds) }
+            .environment(\.answerGate, outer.combined(with: hold.gate))
+            .onAppear { hold.appeared(at: .now) }
+            .onChange(of: leaving) { wasLeaving, isLeaving in
+                hold.leavingChanged(from: wasLeaving, to: isLeaving, at: .now)
+            }
     }
 }
 
-/// A fade that tells the view while it leaves, through `isLeaving`.
+/// A fade that tells the view while it leaves, through `isLeaving`. It only ever sets the flag, so a
+/// prompt inside a detail that is leaving is leaving too.
 private struct LeavingFade: Transition {
     func body(content: Content, phase: TransitionPhase) -> some View {
-        content
+        let leaves = phase == .didDisappear
+        return content
             .opacity(phase.isIdentity ? 1 : 0)
-            .environment(\.isLeaving, phase == .didDisappear)
+            .transformEnvironment(\.isLeaving) { leaving in
+                if leaves { leaving = true }
+            }
     }
 }
 

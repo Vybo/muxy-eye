@@ -13,6 +13,7 @@ struct FinishedDetailView: View {
     @State private var reply = ""
 
     @Environment(\.answerGate) private var answerGate
+    @Environment(\.isLeaving) private var leaving
 
     var body: some View {
         let busy = model.answering.contains(session)
@@ -30,8 +31,9 @@ struct FinishedDetailView: View {
         }
     }
 
-    /// Not until the message has faded in: the eye acts only on what the user has seen.
-    private var answersAllowed: Bool { answerGate.allowsAnswer(at: .now) }
+    /// Not until the message has faded in, and never while it fades out: the eye acts only on what
+    /// the user sees.
+    private var answersAllowed: Bool { !leaving && answerGate.allowsAnswer(at: .now) }
 
     private func send(_ answer: UserAnswer) {
         guard answersAllowed else { return }

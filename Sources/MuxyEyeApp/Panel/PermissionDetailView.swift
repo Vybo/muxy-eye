@@ -87,8 +87,9 @@ struct PermissionDetailView: View {
         send(.option(number))
     }
 
-    /// Not until the prompt has faded in: the eye answers only what the user has seen.
-    private var answersAllowed: Bool { answerGate.allowsAnswer(at: .now) }
+    /// Not until the prompt has faded in, and never while it fades out: the eye answers only what the
+    /// user sees.
+    private var answersAllowed: Bool { !leaving && answerGate.allowsAnswer(at: .now) }
 
     private func send(_ answer: UserAnswer) {
         guard answersAllowed else { return }
