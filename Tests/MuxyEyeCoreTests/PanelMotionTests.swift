@@ -3,6 +3,7 @@ import Testing
 
 @Suite struct PanelMotionTests {
     let motion = PanelMotion()
+    let reduced = PanelMotion(reduceMotion: true)
 
     private func close(_ a: Double, _ b: Double) -> Bool { abs(a - b) < 1e-9 }
 
@@ -61,27 +62,28 @@ import Testing
         #expect(motion.closeDuration < 1)
     }
 
-    @Test func selectionSlidesQuicklyWithoutBouncing() {
-        let selection = motion.selection
+    @Test func selectionSlidesQuicklyWithoutBouncing() throws {
+        let selection = try #require(motion.selection)
         #expect(selection.delay == 0)
         #expect(selection.curve.overshoot < 0.01)
         #expect(selection.totalTime < 0.6)
     }
 
-    @Test func detailCrossFadesQuickly() {
-        #expect(motion.detailSwap.curve == .easeInOut(duration: 0.18))
-        #expect(motion.detailSwap.delay == 0)
+    @Test func detailCrossFadesQuickly() throws {
+        let swap = try #require(motion.detailSwap)
+        #expect(swap.curve == .easeInOut(duration: 0.18))
+        #expect(swap.delay == 0)
     }
 
-    @Test func railChangesSettleWellBeforeTheNextPoll() {
-        let change = motion.railChange
+    @Test func railChangesSettleWellBeforeTheNextPoll() throws {
+        let change = try #require(motion.railChange)
         #expect(change.delay == 0)
         #expect(change.curve.overshoot < 0.01)
         #expect(change.totalTime < 0.8)
     }
 
-    @Test func wingGrowsAndRetractsWithoutAVisibleBounce() {
-        let wing = motion.collapsedChange
+    @Test func wingGrowsAndRetractsWithoutAVisibleBounce() throws {
+        let wing = try #require(motion.collapsedChange)
         #expect(wing.delay == 0)
         #expect(wing.curve.overshoot * EyeLayout.wingWidth < 1)
         #expect(wing.totalTime < 0.6)
@@ -106,18 +108,71 @@ import Testing
         #expect(flash.opacity <= 0.5)
     }
 
-    @Test func promptFadesQuicklyToTheNextState() {
-        let swap = motion.promptSwap
+    @Test func promptFadesQuicklyToTheNextState() throws {
+        let swap = try #require(motion.promptSwap)
         #expect(swap.delay == 0)
         #expect(swap.curve.overshoot == 0)
         #expect(swap.totalTime <= 0.2)
     }
 
-    @Test func bannersSlideFromUnderTheHeaderAndSettleQuickly() {
-        #expect(motion.bannerSlides)
-        #expect(motion.banner.delay == 0)
-        #expect(motion.banner.curve.overshoot < 0.01)
-        #expect(motion.banner.totalTime < 0.5)
+    @Test func bannersSlideFromUnderTheHeaderAndSettleQuickly() throws {
+        #expect(motion.slides)
+        let banner = try #require(motion.banner)
+        #expect(banner.delay == 0)
+        #expect(banner.curve.overshoot < 0.01)
+        #expect(banner.totalTime < 0.5)
+    }
+
+    // MARK: Reduce Motion
+
+    @Test func fullMotionKeepsThePanelOpaqueAndTransitionsOnTheirOwnCurves() {
+        #expect(motion.panelFade == nil)
+        #expect(motion.transitionFade == nil)
+    }
+
+    @Test func reduceMotionNeverGrowsSlidesOvershootsOrPops() {
+        #expect(reduced.shapeOpen == nil)
+        #expect(reduced.shapeClose == nil)
+        #expect(reduced.collapsedChange == nil)
+        #expect(reduced.countPop == nil)
+        #expect(reduced.contentSlide == 0)
+        #expect(reduced.slides == false)
+        #expect(reduced.contentIn == nil)
+        #expect(reduced.detailIn == nil)
+        #expect(reduced.contentOut == nil)
+        #expect((0..<8).allSatisfy { reduced.rowIn($0) == nil })
+        // Nothing moves things around while something fades: no animated layout changes.
+        #expect(reduced.selection == nil)
+        #expect(reduced.railChange == nil)
+        #expect(reduced.detailSwap == nil)
+        #expect(reduced.promptSwap == nil)
+        #expect(reduced.banner == nil)
+    }
+
+    @Test func reduceMotionUsesShortPlainFades() throws {
+        let fades = [reduced.panelFade, reduced.transitionFade, reduced.eyeIn, reduced.eyeOut]
+        for fade in fades {
+            let fade = try #require(fade)
+            #expect(fade.delay == 0)
+            #expect(fade.totalTime <= 0.2)
+            switch fade.curve {
+            case .easeOut, .easeInOut: break
+            case .spring, .decelerate: Issue.record("\(fade.curve) is not a plain fade")
+            }
+        }
+    }
+
+    @Test func reduceMotionSettlesOnceItsFadesEnd() throws {
+        let fade = try #require(reduced.panelFade)
+        #expect(reduced.openDuration >= fade.totalTime)
+        #expect(reduced.closeDuration >= fade.totalTime)
+        #expect(reduced.closeDuration >= reduced.eyeIn.totalTime)
+        #expect(reduced.openDuration <= 0.2)
+        #expect(reduced.closeDuration <= 0.2)
+    }
+
+    @Test func pickedAnswerStillFlashesUnderReduceMotion() {
+        #expect(reduced.answerFlash == motion.answerFlash)
     }
 
     @Test(arguments: [100.0, 600.0, 900.0])

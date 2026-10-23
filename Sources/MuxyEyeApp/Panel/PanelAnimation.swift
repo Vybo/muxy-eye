@@ -13,6 +13,15 @@ extension Motion {
     }
 }
 
+extension PanelMotion {
+    /// `base`, or under Reduce Motion a plain fade that runs on its own, so the views around it
+    /// don't move while it fades.
+    func transition(_ base: AnyTransition) -> AnyTransition {
+        guard let fade = transitionFade else { return base }
+        return .opacity.animation(fade.animation)
+    }
+}
+
 extension View {
     /// Fades the view in (sliding down `slide` points) with `show` while `visible`, out with `hide`.
     func reveal(_ visible: Bool, show: Motion?, hide: Motion?, slide: CGFloat = 0) -> some View {

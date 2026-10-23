@@ -15,13 +15,15 @@ struct ExpandedPanelView: View {
     let contentShown: Bool
     let onHeightChange: (CGFloat) -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var railHeight: CGFloat = 0
     @State private var detailHeight: CGFloat = 0
     @State private var appeared = false
 
     var body: some View {
-        let motion = PanelMotion()
-        let revealed = appeared && contentShown
+        let motion = PanelMotion(reduceMotion: reduceMotion)
+        // With Reduce Motion the content comes and goes with the panel's fade.
+        let revealed = reduceMotion || (appeared && contentShown)
         VStack(spacing: 0) {
             Color.clear.frame(height: topInset)
             content(revealed: revealed, motion: motion)
@@ -47,9 +49,9 @@ struct ExpandedPanelView: View {
                 ZStack(alignment: .topLeading) {
                     SessionDetailView(model: model, record: record)
                         .id(record.id)
-                        .transition(.opacity)
+                        .transition(motion.transition(.opacity))
                 }
-                .animation(motion.detailSwap.animation, value: record.id)
+                .animation(motion.detailSwap?.animation, value: record.id)
                 .fixedSize(horizontal: false, vertical: true)
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { detailHeight = $0 }
                 .reveal(revealed, show: motion.detailIn, hide: motion.contentOut, slide: motion.contentSlide)
@@ -84,12 +86,14 @@ private struct SessionDetailView: View {
     let model: AppModel
     let record: SessionRecord
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         let state = model.state
         let screenText = model.latestScreen[record.id]?.text
         let screen = screenText.flatMap(ScreenParser.parse)
         let waiting = state.isWaiting(record)
-        let motion = PanelMotion()
+        let motion = PanelMotion(reduceMotion: reduceMotion)
         let banner = AnswerBanner.message(for: model.lastOutcome[record.id])
         VStack(alignment: .leading, spacing: 10) {
             // Opaque and on top, so a banner slides out from under it.
@@ -119,19 +123,19 @@ private struct SessionDetailView: View {
             if let banner {
                 BannerView(message: banner, action: openInMuxy)
                     .id(banner)
-                    .transition(motion.bannerSlides ? .move(edge: .top).combined(with: .opacity) : .opacity)
+                    .transition(motion.transition(.move(edge: .top).combined(with: .opacity)))
             }
 
             // The prompt fades out as the next state fades in over it.
             ZStack(alignment: .topLeading) {
-                prompt(screenText: screenText, screen: screen, waiting: waiting)
+                prompt(screenText: screenText, screen: screen, waiting: waiting, transition: motion.transition(.opacity))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .animation(motion.promptSwap.animation, value: PromptKey(pending: record.pending?.receivedAt, waiting: waiting))
+            .animation(motion.promptSwap?.animation, value: PromptKey(pending: record.pending?.receivedAt, waiting: waiting))
 
             OpenInMuxyButton(action: openInMuxy)
         }
-        .animation(motion.banner.animation, value: banner)
+        .animation(motion.banner?.animation, value: banner)
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -142,7 +146,7 @@ private struct SessionDetailView: View {
     }
 
     @ViewBuilder
-    private func prompt(screenText: String?, screen: ScreenPrompt?, waiting: Bool) -> some View {
+    private func prompt(screenText: String?, screen: ScreenPrompt?, waiting: Bool, transition: AnyTransition) -> some View {
         if record.isClaude, let pending = record.pending {
             Group {
                 switch pending.kind {
@@ -155,13 +159,13 @@ private struct SessionDetailView: View {
                 }
             }
             .id(pending.receivedAt)
-            .transition(.opacity)
+            .transition(transition)
         } else if waiting {
             ScreenFallbackView(screen: screenText)
-                .transition(.opacity)
+                .transition(transition)
         } else {
             SessionStatusView(record: record)
-                .transition(.opacity)
+                .transition(transition)
         }
     }
 

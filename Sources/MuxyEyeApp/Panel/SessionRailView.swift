@@ -9,10 +9,11 @@ struct SessionRailView: View {
     let revealed: Bool
     let onContentHeight: (CGFloat) -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var selection
 
     var body: some View {
-        let motion = PanelMotion()
+        let motion = PanelMotion(reduceMotion: reduceMotion)
         ScrollView(.vertical) {
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 let state = model.state
@@ -27,17 +28,18 @@ struct SessionRailView: View {
                                 subtitle: SessionPresentation.railSubtitle(for: record, in: state, now: context.date),
                                 mode: Self.mode(of: record, in: state),
                                 isSelected: record.id == model.selectedSession,
-                                selection: selection
+                                selection: motion.slides ? selection : nil,
+                                highlightTransition: motion.transition(.opacity)
                             )
                         }
                         .buttonStyle(.plain)
                         .reveal(revealed, show: motion.rowIn(index), hide: motion.contentOut, slide: motion.contentSlide)
-                        .transition(Self.rowTransition)
+                        .transition(motion.transition(Self.rowTransition))
                     }
                 }
                 .padding(6)
-                .animation(motion.railChange.animation, value: rail.map(\.id))
-                .animation(motion.selection.animation, value: model.selectedSession)
+                .animation(motion.railChange?.animation, value: rail.map(\.id))
+                .animation(motion.selection?.animation, value: model.selectedSession)
             }
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { onContentHeight($0) }
         }
@@ -61,8 +63,9 @@ private struct SessionRailRow: View {
     let subtitle: String
     let mode: EyeMode
     let isSelected: Bool
-    /// Where the selection highlight slides between rows.
-    let selection: Namespace.ID
+    /// Where the selection highlight slides between rows; nil when it fades instead.
+    let selection: Namespace.ID?
+    let highlightTransition: AnyTransition
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -84,9 +87,15 @@ private struct SessionRailRow: View {
         .padding(.vertical, 6)
         .background {
             if isSelected {
-                shape
-                    .fill(PanelTheme.card)
-                    .matchedGeometryEffect(id: "selection", in: selection)
+                if let selection {
+                    shape
+                        .fill(PanelTheme.card)
+                        .matchedGeometryEffect(id: "selection", in: selection)
+                } else {
+                    shape
+                        .fill(PanelTheme.card)
+                        .transition(highlightTransition)
+                }
             }
         }
         .contentShape(shape)

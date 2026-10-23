@@ -23,12 +23,13 @@ struct CollapsedEyeGlyphs: View {
     let model: AppModel
     let stage: EyeStage
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var appeared = false
 
     var body: some View {
         let layout = stage.collapsed
         let state = model.state
-        let motion = PanelMotion()
+        let motion = PanelMotion(reduceMotion: reduceMotion)
         let visible = appeared && !stage.phase.isExpanding
         ZStack(alignment: .topLeading) {
             SignalLineEyeView(mode: state.mode)
@@ -41,7 +42,7 @@ struct CollapsedEyeGlyphs: View {
                     .onTapGesture { model.expand(focus: true) }
                     .contextMenu { EyeMenu(model: model) }
                     .place(in: rect)
-                    .transition(Self.badgeTransition(at: rect, in: stage.frame.size))
+                    .transition(motion.transition(Self.badgeTransition(at: rect, in: stage.frame.size)))
             }
         }
         .animation(stage.collapsedMotion, value: layout)

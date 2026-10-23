@@ -109,7 +109,7 @@ final class EyeWindowController: EyePresenting {
             return
         }
 
-        let motion = PanelMotion()
+        let motion = PanelMotion(reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
         let previous = stage.phase
         let collapsedChanged = stage.collapsed != collapsed
         let expandedChanged = stage.expandedFrame != expanded
@@ -127,9 +127,10 @@ final class EyeWindowController: EyePresenting {
         // The eye's wing or badge grows or retracts while the eye shows; under the open panel it jumps.
         let eyeShows = phase != .expanded
         if collapsedChanged {
-            stage.collapsedMotion = eyeShows ? motion.collapsedChange.animation : nil
+            stage.collapsedMotion = eyeShows ? motion.collapsedChange?.animation : nil
             stage.collapsed = collapsed
-            if eyeShows { extend(motion.collapsedChange.totalTime) }
+            // With Reduce Motion the shape jumps and only the badge fades.
+            if eyeShows { extend(motion.collapsedChange?.totalTime ?? motion.transitionFade?.totalTime) }
         }
         // The count's pop needs the window's margin around the badge.
         if countChanged, eyeShows { extend(motion.countPop?.totalTime) }
@@ -139,12 +140,17 @@ final class EyeWindowController: EyePresenting {
             panel.showsShadow = false
             pullBackTask?.cancel()
             pullBackTask = nil
+            // With Reduce Motion the shape takes its frame at once and the panel fades instead.
             if phase == .opening {
-                stage.panelOpacityMotion = nil
+                stage.panelOpacityMotion = motion.panelFade?.animation
                 stage.panelOpacity = 1
                 setPanelOutline(EyeLayout.expandedOutline(expanded), motion: motion.shapeOpen)
                 extend(motion.openDuration)
             } else {
+                if let fade = motion.panelFade {
+                    stage.panelOpacityMotion = fade.animation
+                    stage.panelOpacity = 0
+                }
                 schedulePullBack(motion.shapeClose)
                 extend(motion.closeDuration)
             }

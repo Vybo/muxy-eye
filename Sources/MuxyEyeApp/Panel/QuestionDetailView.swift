@@ -11,6 +11,7 @@ struct QuestionDetailView: View {
     let pending: PendingItem
     let screen: ScreenPrompt?
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selection: Set<Int> = []
     @State private var freeText = ""
     /// How often each option, and Submit, has sent an answer, to flash it each time.
@@ -21,6 +22,7 @@ struct QuestionDetailView: View {
         let current = answerableQuestion
         let shown = current ?? request.current(on: screen) ?? request.questions.first
         let busy = model.answering.contains(session)
+        let motion = PanelMotion(reduceMotion: reduceMotion)
         VStack(alignment: .leading, spacing: 8) {
             // The next of several questions fades in over the one just answered. Only the text is
             // swapped: the controls stay, so a field that has focus keeps it.
@@ -31,10 +33,10 @@ struct QuestionDetailView: View {
                         .foregroundStyle(PanelTheme.text)
                         .fixedSize(horizontal: false, vertical: true)
                         .id(shown.question)
-                        .transition(.opacity)
+                        .transition(motion.transition(.opacity))
                 }
             }
-            .animation(PanelMotion().promptSwap.animation, value: shown?.question)
+            .animation(motion.promptSwap?.animation, value: shown?.question)
             if let current {
                 if isMultiSelect {
                     multiSelect(current, busy: busy)
