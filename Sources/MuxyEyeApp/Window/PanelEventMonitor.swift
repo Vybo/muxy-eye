@@ -31,6 +31,9 @@ final class PanelEventMonitor {
                 guard let panel, event.window === panel, panel.isKeyWindow else { return false }
                 let editingText = panel.firstResponder is NSText
                 guard let key = Self.key(for: event, editingText: editingText) else { return false }
+                // Only the first press of a held key may answer, so holding a digit can't also answer
+                // the prompt that follows. The repeats are swallowed rather than beeping.
+                if event.isARepeat, Self.answers(key) { return true }
                 onKey(key)
                 return true
             }
@@ -43,6 +46,13 @@ final class PanelEventMonitor {
         if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
         clickMonitor = nil
         keyMonitor = nil
+    }
+
+    private static func answers(_ key: PanelKey) -> Bool {
+        switch key {
+        case .digit, .primary: true
+        case .up, .down, .escape: false
+        }
     }
 
     /// Esc always collapses. While a text field is being edited every other key goes to the field,
