@@ -102,6 +102,49 @@ import Testing
         #expect(dirMode == 0o700)
     }
 
+    private func connectClient(_ url: URL) throws -> Int32 {
+        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
+        try #require(fd >= 0)
+        var address = try #require(UnixSocket.address(url.path))
+        let connected = withUnsafePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                connect(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
+            }
+        }
+        try #require(connected == 0)
+        return fd
+    }
+
+    @Test func stopClosesConnectionsAndTheSocketCanBeReused() async throws {
+        let url = socketURL()
+        let server = HookSocketServer(socketURL: url)
+        let stream = try server.start()
+        let client = try connectClient(url)
+        defer { close(client) }
+        try await Task.sleep(for: .milliseconds(50))
+        server.stop()
+
+        var descriptor = pollfd(fd: client, events: Int16(POLLIN), revents: 0)
+        #expect(poll(&descriptor, 1, 2_000) == 1)
+        var byte: UInt8 = 0
+        #expect(read(client, &byte, 1) == 0)
+        var iterator = stream.makeAsyncIterator()
+        #expect(await iterator.next() == nil)
+        #expect(!FileManager.default.fileExists(atPath: url.path))
+
+        let again = HookSocketServer(socketURL: url)
+        let second = try again.start()
+        defer { again.stop() }
+        let sent = HookForwarder.forward(
+            event: "Stop",
+            stdin: try stopPayload(),
+            environment: ["MUXY_SESSION_ID": "5", "MUXY_EYE_SOCKET": url.path],
+            home: FileManager.default.temporaryDirectory
+        )
+        #expect(sent)
+        #expect(await first(second)?.muxySessionID == MuxySessionID("5"))
+    }
+
     @Test func serverSkipsMalformedLineAndContinues() async throws {
         let url = socketURL()
         let server = HookSocketServer(socketURL: url)

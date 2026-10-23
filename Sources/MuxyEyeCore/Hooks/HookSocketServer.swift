@@ -63,6 +63,9 @@ public final class HookSocketServer: @unchecked Sendable {
         let (stream, continuation) = AsyncStream<HookEnvelope>.makeStream()
         let source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: queue)
         source.setEventHandler { [weak self] in self?.acceptPending() }
+        // A descriptor is closed only once its source has finished cancelling, so the number can't be
+        // reused while dispatch still watches it.
+        source.setCancelHandler { close(fd) }
         queue.sync {
             self.listenFD = fd
             self.continuation = continuation
@@ -74,16 +77,15 @@ public final class HookSocketServer: @unchecked Sendable {
 
     public func stop() {
         queue.sync {
-            listenSource?.cancel()
-            listenSource = nil
-            if listenFD >= 0 {
-                close(listenFD)
-                listenFD = -1
+            if let listenSource {
+                listenSource.cancel()
                 unlink(socketURL.path)
             }
+            listenSource = nil
+            listenFD = -1
             for connection in connections.values {
                 connection.source?.cancel()
-                close(connection.fd)
+                connection.source = nil
             }
             connections.removeAll()
             continuation?.finish()
@@ -99,6 +101,7 @@ public final class HookSocketServer: @unchecked Sendable {
             let connection = Connection(fd: client)
             let source = DispatchSource.makeReadSource(fileDescriptor: client, queue: queue)
             source.setEventHandler { [weak self] in self?.read(connection) }
+            source.setCancelHandler { close(client) }
             connection.source = source
             connections[client] = connection
             source.resume()
@@ -142,10 +145,8 @@ public final class HookSocketServer: @unchecked Sendable {
     }
 
     private func finish(_ connection: Connection) {
+        guard connections.removeValue(forKey: connection.fd) != nil else { return }
         connection.source?.cancel()
         connection.source = nil
-        if connections.removeValue(forKey: connection.fd) != nil {
-            close(connection.fd)
-        }
     }
 }
