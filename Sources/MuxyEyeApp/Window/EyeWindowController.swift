@@ -6,18 +6,21 @@ import SwiftUI
 /// Owns the eye's panel: sizes it to the collapsed shape or the expanded frame on the target screen.
 @MainActor
 final class EyeWindowController: EyePresenting {
-    private static let expandedContentHeight: CGFloat = 200
+    /// Used until the expanded panel has measured its content.
+    private static let initialExpandedHeight: CGFloat = 220
 
     private let model: AppModel
     private let settings: AppSettings
     private let panel = EyePanel()
     private let hostingView: EyeHostingView
+    private let events = PanelEventMonitor()
+    private var expandedHeight = initialExpandedHeight
     private var observers: [NSObjectProtocol] = []
 
     init(model: AppModel, settings: AppSettings) {
         self.model = model
         self.settings = settings
-        hostingView = EyeHostingView(rootView: EyeRootView(model: model, layout: nil))
+        hostingView = EyeHostingView(rootView: EyeRootView(model: model, content: nil, onExpandedHeight: { _ in }))
         hostingView.sizingOptions = []
         panel.contentView = hostingView
     }
@@ -36,12 +39,16 @@ final class EyeWindowController: EyePresenting {
         panel.isExpanded = expanded
         updateFrame()
         if expanded {
+            startEventMonitor()
             panel.orderFrontRegardless()
             if focus { panel.makeKey() }
-        } else if wasKey {
-            // Hand the keyboard back to the app the user was in.
-            panel.orderOut(nil)
-            panel.orderFrontRegardless()
+        } else {
+            events.stop()
+            if wasKey {
+                // Hand the keyboard back to the app the user was in.
+                panel.orderOut(nil)
+                panel.orderFrontRegardless()
+            }
         }
     }
 
@@ -51,20 +58,33 @@ final class EyeWindowController: EyePresenting {
         guard let screen = targetScreen() else { return }
         let geometry = ScreenGeometry(screen)
         let frame: CGRect
-        let layout: CollapsedLayout?
+        let content: EyeRootView.Content
         if model.expanded {
-            frame = EyeLayout.expandedFrame(on: geometry, contentHeight: Self.expandedContentHeight)
-            layout = nil
+            let topInset = geometry.hasNotch ? geometry.safeAreaTop : 0
+            frame = EyeLayout.expandedFrame(on: geometry, contentHeight: max(expandedHeight, topInset))
+            content = .expanded(topInset: topInset)
         } else {
             let collapsed = EyeLayout.collapsed(on: geometry, waitingCount: model.state.waitingCount)
             frame = collapsed.panelFrame
-            layout = collapsed
+            content = .collapsed(collapsed)
         }
-        if hostingView.rootView.layout != layout {
-            hostingView.rootView = EyeRootView(model: model, layout: layout)
+        if hostingView.rootView.content != content {
+            hostingView.rootView = EyeRootView(model: model, content: content) { [weak self] height in
+                self?.expandedHeightChanged(height)
+            }
         }
         if panel.frame != frame {
             panel.setFrame(frame, display: true)
+        }
+    }
+
+    /// The expanded panel reports its height from inside a SwiftUI update, so the resize waits a turn.
+    private func expandedHeightChanged(_ height: CGFloat) {
+        guard abs(height - expandedHeight) >= 1 else { return }
+        expandedHeight = height
+        Task { @MainActor [weak self] in
+            guard let self, self.model.expanded else { return }
+            self.updateFrame()
         }
     }
 
@@ -74,6 +94,14 @@ final class EyeWindowController: EyePresenting {
             return screen
         }
         return NSScreen.main ?? NSScreen.screens.first
+    }
+
+    private func startEventMonitor() {
+        events.start(
+            panel: panel,
+            onClickOutside: { [weak self] in self?.model.collapse() },
+            onKey: { [weak self] key in self?.model.handleKey(key) }
+        )
     }
 
     // MARK: Observation
@@ -115,58 +143,6 @@ final class EyeWindowController: EyePresenting {
 /// Takes the first click even though the panel is not key, so one click on the eye expands it.
 final class EyeHostingView: NSHostingView<EyeRootView> {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-}
-
-struct EyeRootView: View {
-    let model: AppModel
-    let layout: CollapsedLayout?
-
-    var body: some View {
-        Group {
-            if model.expanded {
-                ExpandedPlaceholderView(model: model)
-            } else if let layout {
-                CollapsedEyeView(model: model, layout: layout)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .ignoresSafeArea()
-    }
-}
-
-/// Stands in for the expanded panel until the sessions rail and prompt views exist.
-private struct ExpandedPlaceholderView: View {
-    let model: AppModel
-
-    var body: some View {
-        VStack(spacing: 8) {
-            SignalLineEyeView(mode: model.state.mode)
-                .frame(width: 28, height: 28)
-            Text(summary)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(PanelTheme.text)
-            Text("Click to collapse")
-                .font(.system(size: 11))
-                .foregroundStyle(PanelTheme.secondaryText)
-        }
-        .padding(.top, 12)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(
-            UnevenRoundedRectangle(bottomLeadingRadius: 22, bottomTrailingRadius: 22, style: .continuous)
-                .fill(PanelTheme.background)
-        )
-        .contentShape(Rectangle())
-        .onTapGesture { model.collapse() }
-    }
-
-    private var summary: String {
-        let state = model.state
-        guard state.muxyRunning else { return "Muxy is not running" }
-        let waiting = state.waitingCount
-        if waiting > 0 { return waiting == 1 ? "1 session needs you" : "\(waiting) sessions need you" }
-        let working = state.sessions.values.filter { $0.muxyState == .working }.count
-        return working > 0 ? "\(working) working" : "All agents idle"
-    }
 }
 
 // MARK: - Screen geometry

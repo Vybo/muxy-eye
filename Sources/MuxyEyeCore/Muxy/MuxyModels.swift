@@ -85,7 +85,8 @@ public struct MuxyProject: Decodable, Sendable, Equatable {
     public let name: String
     public let directory: String
     public let parentID: String?
-    public let kind: String
+    /// `"worktree"` for worktrees; Muxy reports null (or `"project"`) for top-level projects.
+    public let kind: String?
 
     enum CodingKeys: String, CodingKey {
         case id, name, directory, kind

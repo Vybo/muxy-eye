@@ -9,15 +9,42 @@ protocol EyePresenting: AnyObject {
     func present(expanded: Bool, focus: Bool)
 }
 
+/// A key the expanded panel handles while it is the key window.
+enum PanelKey: Equatable {
+    case digit(Int)
+    case primary
+    case up
+    case down
+    case escape
+}
+
+/// A key press for the selected prompt's view. The serial makes repeated presses of one key distinct.
+struct PanelKeyPress: Equatable {
+    enum Kind: Equatable {
+        case digit(Int)
+        case primary
+    }
+
+    let kind: Kind
+    let serial: Int
+}
+
 @MainActor @Observable
 final class AppModel {
-    private static let log = Logger(subsystem: "io.github.vybo.muxy-eye", category: "app")
+    /// The `.failed` reason recorded when an answer finds the Muxy server stopped.
+    nonisolated static let muxyNotRunningReason = "Muxy isn't running"
+
+    private nonisolated static let log = Logger(subsystem: "io.github.vybo.muxy-eye", category: "app")
+    private static let collapseDelay: Duration = .seconds(1)
+    private static let muxyAppBundleIDs = ["com.muxy.app", "com.muxy-beta.app"]
 
     private(set) var state = EyeState()
     private(set) var expanded = false
     var selectedSession: MuxySessionID?
     private(set) var latestScreen: [MuxySessionID: String] = [:]
     private(set) var lastOutcome: [MuxySessionID: AnswerOutcome] = [:]
+    private(set) var answering: Set<MuxySessionID> = []
+    private(set) var keyPress: PanelKeyPress?
     private(set) var muxyFrontmost = false
     private(set) var muxyExecutable: URL?
     private(set) var buildInfo: MuxyBuildInfo?
@@ -30,9 +57,11 @@ final class AppModel {
     @ObservationIgnored private var hookServer: HookSocketServer?
     @ObservationIgnored private var needsMetadata = true
     @ObservationIgnored private var started = false
+    @ObservationIgnored private var keySerial = 0
     @ObservationIgnored private var pollTask: Task<Void, Never>?
     @ObservationIgnored private var hookTask: Task<Void, Never>?
     @ObservationIgnored private var timerTask: Task<Void, Never>?
+    @ObservationIgnored private var collapseTask: Task<Void, Never>?
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
     @ObservationIgnored private let wakeStream: AsyncStream<Void>
     @ObservationIgnored private let wakeContinuation: AsyncStream<Void>.Continuation
@@ -63,6 +92,7 @@ final class AppModel {
         pollTask?.cancel()
         hookTask?.cancel()
         timerTask?.cancel()
+        collapseTask?.cancel()
         hookServer?.stop()
         hookServer = nil
     }
@@ -70,62 +100,122 @@ final class AppModel {
     // MARK: Panel
 
     func expand(focus: Bool) {
-        if selectedSession.flatMap({ state.sessions[$0] }) == nil {
+        cancelPendingCollapse()
+        let selected = selectedSession.flatMap { state.sessions[$0] }
+        if selected.map(state.isWaiting) != true {
             let rail = state.rail
-            selectedSession = (rail.first(where: state.isWaiting) ?? rail.first)?.id
+            if let waiting = rail.first(where: state.isWaiting) {
+                selectedSession = waiting.id
+            } else if selected == nil {
+                selectedSession = rail.first?.id
+            }
         }
         expanded = true
         presenter?.present(expanded: true, focus: focus)
     }
 
     func collapse() {
+        cancelPendingCollapse()
         expanded = false
+        lastOutcome = [:]
+        keyPress = nil
         presenter?.present(expanded: false, focus: false)
+    }
+
+    func handleKey(_ key: PanelKey) {
+        switch key {
+        case .escape: collapse()
+        case .up: moveSelection(by: -1)
+        case .down: moveSelection(by: 1)
+        case .digit(let number): publishKey(.digit(number))
+        case .primary: publishKey(.primary)
+        }
+    }
+
+    func moveSelection(by offset: Int) {
+        let rail = state.rail
+        guard !rail.isEmpty else { return }
+        let current = selectedSession.flatMap { id in rail.firstIndex { $0.id == id } }
+        let next = current.map { min(max($0 + offset, 0), rail.count - 1) } ?? 0
+        selectedSession = rail[next].id
+    }
+
+    /// Whether the latest screen still shows the session's pending prompt (true when nothing is pending).
+    func screenShowsPending(_ session: MuxySessionID) -> Bool {
+        guard let pending = state.sessions[session]?.pending else { return true }
+        guard let screen = latestScreen[session] else { return false }
+        return AnswerPlanner.matches(
+            pending,
+            screen: ScreenParser.parse(screen),
+            idlePrompt: ScreenParser.isAtIdlePrompt(screen)
+        )
     }
 
     // MARK: Session actions
 
     func answer(_ answer: UserAnswer, for session: MuxySessionID) async {
-        guard let executor else {
+        guard let answer = answer.sanitized, !answering.contains(session) else { return }
+        guard let executor, let muxy else {
             lastOutcome[session] = .failed("Muxy not found")
             return
         }
-        guard state.muxyRunning else {
-            lastOutcome[session] = .failed("Muxy is not running")
+        answering.insert(session)
+        defer { answering.remove(session) }
+        lastOutcome[session] = nil
+
+        guard await muxy.serverStatus() == .running else {
+            lastOutcome[session] = .failed(Self.muxyNotRunningReason)
             return
         }
         guard let pending = state.sessions[session]?.pending else {
             lastOutcome[session] = .promptChanged
             return
         }
-        lastOutcome[session] = nil
         let outcome = await executor.perform(answer, pending: pending, session: session)
         lastOutcome[session] = outcome
         if outcome == .delivered {
-            handle(EyeReducer.reduce(&state, .answered(session, at: .now)))
+            handle(apply([.answered(session, at: .now)]))
             wake()
+        } else {
+            if case .failed(let reason) = outcome {
+                Self.log.error("Answer failed for \(session.rawValue, privacy: .public): \(reason, privacy: .public)")
+            }
+            await loadScreen(session)
         }
     }
 
     func dismiss(_ session: MuxySessionID) {
-        handle(EyeReducer.reduce(&state, .dismiss(session, at: .now)))
+        handle(apply([.dismiss(session, at: .now)]))
     }
 
     func openInMuxy(_ session: MuxySessionID) async {
-        if state.muxyRunning, let muxy {
-            let directory = state.sessionInfo[session]?.directory ?? state.sessions[session]?.directory
-            if let directory { try? await muxy.openInDesktop(directory: directory) }
+        guard let muxy, await muxy.serverStatus() == .running else { return }
+        if let directory = state.sessionInfo[session]?.directory ?? state.sessions[session]?.directory {
+            do {
+                try await muxy.openInDesktop(directory: directory)
+            } catch {
+                Self.log.error("Opening \(directory, privacy: .public) in Muxy failed: \(String(describing: error), privacy: .public)")
+            }
         }
-        activateMuxy()
-        if state.muxyRunning, let muxy, let ids = state.sessions[session]?.unreadEventIDs, !ids.isEmpty {
-            try? await muxy.ack(eventIDs: ids)
+        bringMuxyForward()
+        let eventIDs = state.sessions[session]?.unreadEventIDs ?? []
+        if !eventIDs.isEmpty {
+            do {
+                try await muxy.ack(eventIDs: eventIDs)
+            } catch {
+                Self.log.error("Ack failed: \(String(describing: error), privacy: .public)")
+            }
+            wake()
         }
+        collapse()
     }
 
     func loadScreen(_ session: MuxySessionID) async {
-        guard state.muxyRunning, let muxy else { return }
-        if let screen = try? await muxy.readScreen(session) {
-            latestScreen[session] = screen
+        guard let muxy, await muxy.serverStatus() == .running else { return }
+        do {
+            latestScreen[session] = try await muxy.readScreen(session)
+        } catch {
+            Self.log.error("read-screen failed for \(session.rawValue, privacy: .public): \(String(describing: error), privacy: .public)")
         }
     }
 
@@ -149,8 +239,12 @@ final class AppModel {
         muxy = cli
         executor = AnswerExecutor(muxy: cli)
         Task { [weak self] in
-            let info = try? await cli.buildInfo()
-            self?.buildInfo = info
+            do {
+                let info = try await cli.buildInfo()
+                self?.buildInfo = info
+            } catch {
+                Self.log.error("muxy --build-info failed: \(String(describing: error), privacy: .public)")
+            }
         }
     }
 
@@ -205,10 +299,7 @@ final class AppModel {
             let gotMetadata = actions.contains { if case .metadata = $0 { true } else { false } }
             if gotMetadata { needsMetadata = false }
 
-            var effects: [EyeEffect] = []
-            for action in actions {
-                effects += EyeReducer.reduce(&state, action)
-            }
+            var effects = apply(actions)
             if gotMetadata { effects.removeAll { $0 == .refreshMetadata } }
             handle(effects)
             scheduleNextPoll(after: PollPolicy.interval(for: state))
@@ -234,8 +325,29 @@ final class AppModel {
 
     private func receive(_ envelope: HookEnvelope) {
         guard muxy != nil, let event = HookDecoder.decode(envelope) else { return }
-        handle(EyeReducer.reduce(&state, .hook(event, at: .now)))
+        handle(apply([.hook(event, at: .now)]))
         wake()
+    }
+
+    /// Reduces the actions, then keeps the panel's selection, banners and auto-collapse in step.
+    private func apply(_ actions: [EyeAction]) -> [EyeEffect] {
+        let before = state
+        var effects: [EyeEffect] = []
+        for action in actions {
+            effects += EyeReducer.reduce(&state, action)
+        }
+        guard state != before else { return effects }
+        if before.sessions.keys.contains(where: { state.sessions[$0] == nil }) {
+            latestScreen = latestScreen.filter { state.sessions[$0.key] != nil }
+        }
+        dropStaleOutcomes(before: before)
+        reconcileSelection(previouslyWaiting: Set(before.sessions.values.filter(before.isWaiting).map(\.id)))
+        if state.waitingCount > 0 {
+            cancelPendingCollapse()
+        } else if before.waitingCount > 0, expanded {
+            scheduleCollapse()
+        }
+        return effects
     }
 
     private func handle(_ effects: [EyeEffect]) {
@@ -243,7 +355,14 @@ final class AppModel {
             switch effect {
             case .ack(let eventIDs):
                 guard state.muxyRunning, let muxy else { continue }
-                Task { try? await muxy.ack(eventIDs: eventIDs) }
+                Task {
+                    guard await muxy.serverStatus() == .running else { return }
+                    do {
+                        try await muxy.ack(eventIDs: eventIDs)
+                    } catch {
+                        Self.log.error("Ack failed: \(String(describing: error), privacy: .public)")
+                    }
+                }
             case .refreshMetadata:
                 needsMetadata = true
                 wake()
@@ -261,13 +380,80 @@ final class AppModel {
         }
     }
 
+    // MARK: Panel bookkeeping
+
+    /// A banner belongs to the prompt it answered: it goes when another prompt arrives or the session ends.
+    private func dropStaleOutcomes(before: EyeState) {
+        for id in Array(lastOutcome.keys) {
+            guard let record = state.sessions[id] else {
+                lastOutcome[id] = nil
+                continue
+            }
+            guard let pending = record.pending else { continue }
+            let old = before.sessions[id]?.pending
+            if old?.kind != pending.kind || old?.receivedAt != pending.receivedAt {
+                lastOutcome[id] = nil
+            }
+        }
+    }
+
+    /// Keeps a valid selection, and moves it to the first waiting row when the selected row
+    /// stops waiting or another row starts.
+    private func reconcileSelection(previouslyWaiting: Set<MuxySessionID>) {
+        let rail = state.rail
+        let firstWaiting = rail.first(where: state.isWaiting)
+        guard let id = selectedSession, let record = state.sessions[id] else {
+            selectedSession = (firstWaiting ?? rail.first)?.id
+            return
+        }
+        guard !state.isWaiting(record), let firstWaiting else { return }
+        let stoppedWaiting = previouslyWaiting.contains(id)
+        let startedWaiting = rail.contains { state.isWaiting($0) && !previouslyWaiting.contains($0.id) }
+        if stoppedWaiting || startedWaiting {
+            selectedSession = firstWaiting.id
+        }
+    }
+
+    private func scheduleCollapse() {
+        collapseTask?.cancel()
+        collapseTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: Self.collapseDelay)
+            } catch {
+                return
+            }
+            self?.collapse()
+        }
+    }
+
+    private func cancelPendingCollapse() {
+        collapseTask?.cancel()
+        collapseTask = nil
+    }
+
+    private func publishKey(_ kind: PanelKeyPress.Kind) {
+        keySerial += 1
+        keyPress = PanelKeyPress(kind: kind, serial: keySerial)
+    }
+
     // MARK: Helpers
 
-    private func activateMuxy() {
-        let app = MuxyApp.bundleIdentifiers.lazy
-            .compactMap { NSRunningApplication.runningApplications(withBundleIdentifier: $0).first }
-            .first
-        app?.activate()
+    /// Brings the Muxy app forward: the running copy if there is one, else the installed Stable or Beta app.
+    private func bringMuxyForward() {
+        let workspace = NSWorkspace.shared
+        let running = workspace.runningApplications.first { Self.isMuxy($0) }?.bundleURL
+        let installed = Self.muxyAppBundleIDs.lazy.compactMap { workspace.urlForApplication(withBundleIdentifier: $0) }.first
+        guard let url = running ?? installed else {
+            Self.log.error("Muxy app not found")
+            return
+        }
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        workspace.openApplication(at: url, configuration: configuration) { _, error in
+            if let error {
+                Self.log.error("Activating Muxy failed: \(error.localizedDescription, privacy: .public)")
+            }
+        }
     }
 
     private nonisolated static func isMuxy(_ app: NSRunningApplication?) -> Bool {

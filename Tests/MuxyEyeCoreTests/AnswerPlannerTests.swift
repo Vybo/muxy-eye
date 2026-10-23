@@ -139,6 +139,23 @@ import Testing
         #expect(AnswerPlanner.steps(for: .multiSelect([5]), pending: try pending("pre-tool-use-question-multi"), screen: s, idlePrompt: false) == .failure(.noMatchingOption))
     }
 
+    @Test func freeTextOptionComesFromTheScreen() throws {
+        #expect(AnswerPlanner.freeTextOption(on: try screen("question-single"))?.number == 4)
+        #expect(AnswerPlanner.freeTextOption(on: try screen("question-single-type-something"))?.number == 4)
+        #expect(AnswerPlanner.freeTextOption(on: try screen("question-multi"))?.number == 4)
+        #expect(AnswerPlanner.freeTextOption(on: try screen("permission-bash")) == nil)
+        #expect(AnswerPlanner.freeTextOption(on: nil) == nil)
+    }
+
+    @Test func denyOptionComesFromTheScreen() throws {
+        #expect(AnswerPlanner.denyOption(on: try screen("permission-bash"))?.number == 4)
+        #expect(AnswerPlanner.denyOption(on: try screen("permission-write"))?.number == 3)
+        #expect(AnswerPlanner.denyOption(on: try screen("permission-bash", replacing: "4. No", with: "4. No, and tell Claude what to do differently"))?.number == 4)
+        #expect(AnswerPlanner.denyOption(on: try screen("permission-bash", replacing: "4. No", with: "4. Nope")) == nil)
+        #expect(AnswerPlanner.denyOption(on: try screen("question-single")) == nil)
+        #expect(AnswerPlanner.denyOption(on: nil) == nil)
+    }
+
     @Test func denyWithoutNoOptionIsNoMatchingOption() throws {
         let s = try screen("permission-bash", replacing: "4. No", with: "4. Maybe")
         #expect(AnswerPlanner.steps(for: .deny(feedback: "x"), pending: try pending("permission-request-bash"), screen: s, idlePrompt: false) == .failure(.noMatchingOption))

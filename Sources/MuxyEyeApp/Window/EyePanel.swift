@@ -24,6 +24,7 @@ final class EyePanel: NSPanel {
         hidesOnDeactivate = false
         isMovable = false
         isReleasedWhenClosed = false
+        appearance = NSAppearance(named: .darkAqua)
     }
 
     @available(*, unavailable)
@@ -33,4 +34,12 @@ final class EyePanel: NSPanel {
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+
+    /// A click in the expanded panel gives it the keyboard, also when it expanded on its own.
+    override func sendEvent(_ event: NSEvent) {
+        if isExpanded, event.type == .leftMouseDown, !isKeyWindow {
+            makeKey()
+        }
+        super.sendEvent(event)
+    }
 }

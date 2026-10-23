@@ -2,6 +2,7 @@ import MuxyEyeCore
 import SwiftUI
 
 /// The collapsed eye: a black circle (or the widened notch) with the signal line and the waiting count.
+/// Only the visible shapes take clicks; the transparent rest of the panel does not.
 struct CollapsedEyeView: View {
     private static let notchCornerRadius: CGFloat = 10
 
@@ -27,6 +28,7 @@ struct CollapsedEyeView: View {
             }
 
             SignalLineEyeView(mode: state.mode)
+                .allowsHitTesting(false)
                 .place(in: layout.eyeFrame, panelHeight: size.height)
 
             if let countFrame = layout.countFrame {
@@ -38,11 +40,11 @@ struct CollapsedEyeView: View {
                     .fixedSize()
                     .frame(width: countFrame.width, height: countFrame.height)
                     .background(Capsule().fill(PanelTheme.eye))
+                    .contentShape(Capsule())
                     .place(in: countFrame, panelHeight: size.height)
             }
         }
         .frame(width: size.width, height: size.height)
-        .contentShape(Rectangle())
         .onTapGesture { model.expand(focus: true) }
     }
 }

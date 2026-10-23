@@ -29,7 +29,8 @@ public enum AnswerRejection: Error, Sendable, Equatable {
 }
 
 extension QuestionRequest {
-    func current(on screen: ScreenPrompt?) -> Question? {
+    /// The question the terminal is showing now; Claude asks several questions one after another.
+    public func current(on screen: ScreenPrompt?) -> Question? {
         guard case .question(_, let text, _, _)? = screen else { return nil }
         return questions.first { $0.question == text }
     }
@@ -40,7 +41,8 @@ public enum AnswerPlanner {
 
     private static let fileTools: Set<String> = ["Write", "Edit", "MultiEdit"]
 
-    static func matches(_ pending: PendingItem, screen: ScreenPrompt?, idlePrompt: Bool) -> Bool {
+    /// Whether the screen still shows the prompt of `pending`; answers are offered only when it does.
+    public static func matches(_ pending: PendingItem, screen: ScreenPrompt?, idlePrompt: Bool) -> Bool {
         switch pending.kind {
         case .finished:
             return idlePrompt
@@ -81,15 +83,11 @@ public enum AnswerPlanner {
             return .success([.text(String(n))])
         case .deny(let feedback):
             guard case .permission = pending.kind else { return .failure(.unsupported) }
-            guard let no = options.first(where: { $0.label == "No" || $0.label.hasPrefix("No,") }) else {
-                return .failure(.noMatchingOption)
-            }
+            guard let no = denyOption(on: screen) else { return .failure(.noMatchingOption) }
             return .success([.text(String(no.number)), .expectIdlePrompt, .text(feedback), .key(.enter)])
         case .freeText(let text):
             guard !isMulti, case .question = pending.kind else { return .failure(.unsupported) }
-            guard let row = options.first(where: { $0.label.hasPrefix("Type something") }) else {
-                return .failure(.noMatchingOption)
-            }
+            guard let row = freeTextOption(on: screen) else { return .failure(.noMatchingOption) }
             return .success([.text(String(row.number)), .text(text), .key(.enter)])
         case .multiSelect(let selected):
             guard isMulti, case .question(let request) = pending.kind,
@@ -108,6 +106,18 @@ public enum AnswerPlanner {
         case .reply:
             return .failure(.promptChanged)
         }
+    }
+
+    /// A question's "Type something" row, which takes free text.
+    public static func freeTextOption(on screen: ScreenPrompt?) -> ScreenOption? {
+        guard case .question(_, _, let options, _)? = screen else { return nil }
+        return options.first { $0.label.hasPrefix("Type something") }
+    }
+
+    /// A permission prompt's "No" row, which lets the user tell Claude what to do instead.
+    public static func denyOption(on screen: ScreenPrompt?) -> ScreenOption? {
+        guard case .permission(_, _, _, let options)? = screen else { return nil }
+        return options.first { $0.label == "No" || $0.label.hasPrefix("No,") }
     }
 
     private static func optionsAndMode(of screen: ScreenPrompt) -> ([ScreenOption], Bool)? {

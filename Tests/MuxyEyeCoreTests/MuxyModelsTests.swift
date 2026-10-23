@@ -25,3 +25,17 @@ import Testing
     let build = try JSONDecoder().decode(MuxyBuildInfo.self, from: Fixture.data("muxy/build-info.json"))
     #expect(build.isSupported)
 }
+
+@Test func decodesTopLevelProjectWithNullKind() throws {
+    // Muxy 2.1.0 reports `"kind": null` for top-level projects; one such entry must not sink the list.
+    let json = """
+    [
+      {"id": "p1", "name": "muxy-eye", "directory": "/Users/me/muxy-eye", "home": false, "parent_id": null, "kind": null, "color": "#f76b15", "icon": null},
+      {"id": "w1", "name": "spike/m7", "directory": "/Users/me/muxy-eye-wt", "home": false, "parent_id": "p1", "kind": "worktree", "color": null, "icon": null}
+    ]
+    """
+    let projects = try JSONDecoder().decode([MuxyProject].self, from: Data(json.utf8))
+    #expect(projects.map(\.name) == ["muxy-eye", "spike/m7"])
+    #expect(projects[0].kind == nil)
+    #expect(projects[1].kind == "worktree")
+}
