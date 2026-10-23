@@ -85,6 +85,9 @@ public struct PanelMotion: Sendable, Equatable {
     /// The detail column fading and sliding in.
     public var detailIn: Motion? { moving(Motion(.decelerate(duration: 0.4), delay: 0.26)) }
 
+    /// The content coming back when the panel reopens while it closes, from however far it had faded.
+    public var contentReturn: Motion? { moving(Motion(.easeOut(duration: 0.15))) }
+
     /// The content fading out when the panel closes; nil when it goes with the panel.
     public var contentOut: Motion? { moving(Motion(.easeOut(duration: 0.12))) }
 

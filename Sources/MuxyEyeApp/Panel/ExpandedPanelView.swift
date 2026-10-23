@@ -13,6 +13,8 @@ struct ExpandedPanelView: View {
     let topInset: CGFloat
     /// The panel is open or opening; false while it closes.
     let contentShown: Bool
+    /// The panel reopened before it finished closing: the content comes back without the cascade.
+    let reopening: Bool
     let onHeightChange: (CGFloat) -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -29,7 +31,7 @@ struct ExpandedPanelView: View {
             content(revealed: revealed, motion: motion)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .reveal(revealed, show: motion.contentIn, hide: motion.contentOut)
+        .reveal(revealed, show: reopening ? motion.contentReturn : motion.contentIn, hide: motion.contentOut)
         .environment(\.colorScheme, .dark)
         .onChange(of: desiredHeight, initial: true) { _, height in onHeightChange(height) }
         .onAppear { appeared = true }
@@ -40,7 +42,7 @@ struct ExpandedPanelView: View {
         let state = model.state
         if let record = selectedRecord {
             HStack(alignment: .top, spacing: 0) {
-                SessionRailView(model: model, revealed: revealed) { railHeight = $0 }
+                SessionRailView(model: model, revealed: revealed, reopening: reopening) { railHeight = $0 }
                     .frame(width: Self.railWidth)
                 Rectangle()
                     .fill(PanelTheme.divider)
@@ -54,7 +56,12 @@ struct ExpandedPanelView: View {
                 .animation(motion.detailSwap?.animation, value: record.id)
                 .fixedSize(horizontal: false, vertical: true)
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { detailHeight = $0 }
-                .reveal(revealed, show: motion.detailIn, hide: motion.contentOut, slide: motion.contentSlide)
+                .reveal(
+                    revealed,
+                    show: reopening ? motion.contentReturn : motion.detailIn,
+                    hide: motion.contentOut,
+                    slide: motion.contentSlide
+                )
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
         } else {

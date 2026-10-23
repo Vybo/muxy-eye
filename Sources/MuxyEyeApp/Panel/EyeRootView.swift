@@ -67,6 +67,7 @@ private struct PanelContent: View {
                     model: model,
                     topInset: stage.topInset,
                     contentShown: expanding,
+                    reopening: stage.reopening,
                     onHeightChange: onExpandedHeight
                 )
                 .frame(width: frame.width, height: frame.height)

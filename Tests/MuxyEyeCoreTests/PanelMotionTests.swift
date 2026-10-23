@@ -42,6 +42,15 @@ import Testing
         #expect(delays[6...].allSatisfy { close($0, delays[5]) })
     }
 
+    @Test func reopeningWhileClosingBringsTheContentBackAtOnceWithoutTheCascade() throws {
+        let back = try #require(motion.contentReturn)
+        #expect(back.delay == 0)
+        #expect(back.curve.overshoot == 0)
+        #expect(back.totalTime <= 0.2)
+        let firstRow = try #require(motion.rowIn(0))
+        #expect(back.totalTime < firstRow.delay + firstRow.curve.settlingTime())
+    }
+
     @Test func eyeLeavesAtOnceAndReturnsAsTheShapeLands() throws {
         #expect(motion.eyeOut.delay == 0)
         #expect(motion.eyeOut.totalTime <= 0.15)
@@ -147,6 +156,7 @@ import Testing
         #expect(reduced.contentIn == nil)
         #expect(reduced.detailIn == nil)
         #expect(reduced.contentOut == nil)
+        #expect(reduced.contentReturn == nil)
         #expect((0..<8).allSatisfy { reduced.rowIn($0) == nil })
         // Nothing moves things around while something fades: no animated layout changes.
         #expect(reduced.selection == nil)

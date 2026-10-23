@@ -7,6 +7,8 @@ import SwiftUI
 struct SessionRailView: View {
     let model: AppModel
     let revealed: Bool
+    /// The panel reopened before it finished closing: the rows come back together.
+    let reopening: Bool
     let onContentHeight: (CGFloat) -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -33,7 +35,12 @@ struct SessionRailView: View {
                             )
                         }
                         .buttonStyle(.plain)
-                        .reveal(revealed, show: motion.rowIn(index), hide: motion.contentOut, slide: motion.contentSlide)
+                        .reveal(
+                            revealed,
+                            show: reopening ? motion.contentReturn : motion.rowIn(index),
+                            hide: motion.contentOut,
+                            slide: motion.contentSlide
+                        )
                         .transition(motion.transition(Self.rowTransition))
                     }
                 }

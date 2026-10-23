@@ -11,6 +11,9 @@ final class EyeStage {
     /// The stage on screen; its top is the top of the screen.
     var frame: CGRect = .zero
     var phase: PanelPhase = .collapsed
+    /// The panel is opening again before it finished closing: its content comes straight back
+    /// instead of cascading in.
+    var reopening = false
 
     var collapsed = CollapsedLayout(panelFrame: .zero, eyeFrame: .zero, countFrame: nil, shapeFrame: nil)
     /// How the collapsed eye moves to a new layout; nil jumps.

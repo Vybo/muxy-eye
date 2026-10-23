@@ -149,6 +149,7 @@ final class EyeWindowController: EyePresenting {
             pullBackTask = nil
             // With Reduce Motion the shape takes its frame at once and the panel fades instead.
             if phase == .opening {
+                stage.reopening = previous == .closing
                 stage.panelOpacityMotion = motion.panelFade?.animation
                 stage.panelOpacity = 1
                 setPanelOutline(EyeLayout.expandedOutline(expanded), motion: motion.shapeOpen)
@@ -205,6 +206,7 @@ final class EyeWindowController: EyePresenting {
         stage.panelOpacityMotion = nil
         stage.frame = EyeLayout.stageFrame(on: geometry)
         stage.phase = phase
+        stage.reopening = false
         stage.collapsed = collapsed
         stage.expandedFrame = expanded
         stage.topInset = topInset
