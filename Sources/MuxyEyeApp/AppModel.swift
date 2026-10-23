@@ -27,7 +27,14 @@ struct PanelKeyPress: Equatable {
     }
 
     let kind: Kind
+    /// The prompt on show when the key went down; nil when the panel showed no session.
+    let target: PromptTarget?
     let serial: Int
+
+    /// Whether the view showing `pending` for `session` may act on this key.
+    func isFor(session: MuxySessionID, pending: PendingItem) -> Bool {
+        target?.matches(session: session, pending: pending) == true
+    }
 }
 
 @MainActor @Observable
@@ -541,9 +548,11 @@ final class AppModel {
         collapseTask = nil
     }
 
+    /// Publishes a key for the prompt the panel shows right now, so only that prompt's view acts on it.
     private func publishKey(_ kind: PanelKeyPress.Kind) {
         keySerial += 1
-        keyPress = PanelKeyPress(kind: kind, serial: keySerial)
+        let target = PromptTarget.displayed(in: state, selected: selectedSession)
+        keyPress = PanelKeyPress(kind: kind, target: target, serial: keySerial)
     }
 
     // MARK: Helpers

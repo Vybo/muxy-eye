@@ -10,6 +10,9 @@ struct QuestionDetailView: View {
     let request: QuestionRequest
     let pending: PendingItem
     let screen: ScreenPrompt?
+    let keyPress: PanelKeyPress?
+
+    @Environment(\.isLeaving) private var leaving
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selection: Set<Int> = []
@@ -48,8 +51,9 @@ struct QuestionDetailView: View {
         .onChange(of: current?.question, initial: true) {
             selection = checkedOnScreen(limit: current?.options.count ?? 0)
         }
-        .onChange(of: model.keyPress) { _, press in
-            guard let press, let current else { return }
+        .onChange(of: keyPress) { _, press in
+            // Only keys pressed while this prompt was the one on show, and never while it fades out.
+            guard let press, !leaving, press.isFor(session: session, pending: pending), let current else { return }
             handle(press.kind, question: current)
         }
     }

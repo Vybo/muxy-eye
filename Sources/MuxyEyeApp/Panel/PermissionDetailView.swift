@@ -11,6 +11,9 @@ struct PermissionDetailView: View {
     let request: PermissionRequest
     let pending: PendingItem
     let screen: ScreenPrompt?
+    let keyPress: PanelKeyPress?
+
+    @Environment(\.isLeaving) private var leaving
 
     @State private var feedback = ""
     /// How often each option has been picked, to flash it each time.
@@ -56,8 +59,9 @@ struct PermissionDetailView: View {
                 }
             }
         }
-        .onChange(of: model.keyPress) { _, press in
-            guard let press, !options.isEmpty else { return }
+        .onChange(of: keyPress) { _, press in
+            // Only keys pressed while this prompt was the one on show, and never while it fades out.
+            guard let press, !leaving, press.isFor(session: session, pending: pending), !options.isEmpty else { return }
             switch press.kind {
             case .digit(let number):
                 if options.contains(where: { $0.number == number }) { pick(number) }

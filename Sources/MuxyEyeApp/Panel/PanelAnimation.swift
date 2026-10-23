@@ -13,7 +13,29 @@ extension Motion {
     }
 }
 
+extension EnvironmentValues {
+    /// The view is on its way out (a fading detail or prompt): it must not act on keys any more.
+    @Entry var isLeaving = false
+}
+
+/// A fade that tells the view while it leaves, through `isLeaving`.
+private struct LeavingFade: Transition {
+    func body(content: Content, phase: TransitionPhase) -> some View {
+        content
+            .opacity(phase.isIdentity ? 1 : 0)
+            .environment(\.isLeaving, phase == .didDisappear)
+    }
+}
+
 extension PanelMotion {
+    /// A plain fade for a detail or prompt that gives way to another. The one leaving is told so it
+    /// ignores keys; with Reduce Motion the fade runs on its own, so nothing around it moves.
+    var leavingFade: AnyTransition {
+        let fade = AnyTransition(LeavingFade())
+        guard let motion = transitionFade else { return fade }
+        return fade.animation(motion.animation)
+    }
+
     /// `base`, or under Reduce Motion a plain fade that runs on its own, so the views around it
     /// don't move while it fades.
     func transition(_ base: AnyTransition) -> AnyTransition {

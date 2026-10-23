@@ -47,9 +47,9 @@ struct ExpandedPanelView: View {
                     .frame(width: 1)
                 // Another session's detail cross-fades in over the last one.
                 ZStack(alignment: .topLeading) {
-                    SessionDetailView(model: model, record: record)
+                    SessionDetailView(model: model, record: record, keyPress: model.keyPress)
                         .id(record.id)
-                        .transition(motion.transition(.opacity))
+                        .transition(motion.leavingFade)
                 }
                 .animation(motion.detailSwap?.animation, value: record.id)
                 .fixedSize(horizontal: false, vertical: true)
@@ -67,9 +67,9 @@ struct ExpandedPanelView: View {
         }
     }
 
+    /// The session shown, as key presses target it.
     private var selectedRecord: SessionRecord? {
-        let state = model.state
-        return model.selectedSession.flatMap { state.sessions[$0] } ?? state.rail.first
+        model.state.displayedRecord(selected: model.selectedSession)
     }
 
     private var desiredHeight: CGFloat {
@@ -85,6 +85,8 @@ private struct SessionDetailView: View {
 
     let model: AppModel
     let record: SessionRecord
+    /// Passed in rather than read from the model, so a detail that is fading out stops receiving keys.
+    let keyPress: PanelKeyPress?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -128,7 +130,7 @@ private struct SessionDetailView: View {
 
             // The prompt fades out as the next state fades in over it.
             ZStack(alignment: .topLeading) {
-                prompt(screenText: screenText, screen: screen, waiting: waiting, transition: motion.transition(.opacity))
+                prompt(screenText: screenText, screen: screen, waiting: waiting, transition: motion.leavingFade)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .animation(motion.promptSwap?.animation, value: PromptKey(pending: record.pending?.receivedAt, waiting: waiting))
@@ -151,9 +153,13 @@ private struct SessionDetailView: View {
             Group {
                 switch pending.kind {
                 case .permission(let request):
-                    PermissionDetailView(model: model, session: record.id, request: request, pending: pending, screen: screen)
+                    PermissionDetailView(
+                        model: model, session: record.id, request: request, pending: pending, screen: screen, keyPress: keyPress
+                    )
                 case .question(let request):
-                    QuestionDetailView(model: model, session: record.id, request: request, pending: pending, screen: screen)
+                    QuestionDetailView(
+                        model: model, session: record.id, request: request, pending: pending, screen: screen, keyPress: keyPress
+                    )
                 case .finished(let message):
                     FinishedDetailView(model: model, session: record.id, pending: pending, message: message)
                 }
