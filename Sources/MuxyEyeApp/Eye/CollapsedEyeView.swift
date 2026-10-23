@@ -36,24 +36,55 @@ struct CollapsedEyeGlyphs: View {
                 .place(in: stage.local(layout.onScreen(layout.eyeFrame)))
 
             if let countFrame = layout.countFrame {
-                Text("\(state.waitingCount)")
-                    .font(.system(size: 11, weight: .semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(PanelTheme.waiting)
-                    .lineLimit(1)
-                    .fixedSize()
-                    .frame(width: countFrame.width, height: countFrame.height)
-                    .background(Capsule().fill(PanelTheme.eye))
-                    .contentShape(Capsule())
+                let rect = stage.local(layout.onScreen(countFrame))
+                CountBadge(count: state.waitingCount, pop: motion.countPop)
                     .onTapGesture { model.expand(focus: true) }
                     .contextMenu { EyeMenu(model: model) }
-                    .place(in: stage.local(layout.onScreen(countFrame)))
+                    .place(in: rect)
+                    .transition(Self.badgeTransition(at: rect, in: stage.frame.size))
             }
         }
         .animation(stage.collapsedMotion, value: layout)
         .reveal(visible, show: motion.eyeIn, hide: motion.eyeOut)
         .allowsHitTesting(visible)
         .onAppear { appeared = true }
+    }
+
+    /// The badge grows in from its centre. Placed views span the stage, so the anchor is the badge's
+    /// centre as a fraction of the stage.
+    private static func badgeTransition(at rect: CGRect, in size: CGSize) -> AnyTransition {
+        guard size.width > 0, size.height > 0 else { return .opacity }
+        let anchor = UnitPoint(x: rect.midX / size.width, y: rect.midY / size.height)
+        return .scale(scale: 0.5, anchor: anchor).combined(with: .opacity)
+    }
+}
+
+/// The waiting count: orange on a black capsule, which on a notch display sits on the right wing.
+/// It pops briefly when the count changes.
+private struct CountBadge: View {
+    let count: Int
+    let pop: Pop?
+
+    var body: some View {
+        let badge = Text("\(count)")
+            .font(.system(size: 11, weight: .semibold))
+            .monospacedDigit()
+            .foregroundStyle(PanelTheme.waiting)
+            .lineLimit(1)
+            .fixedSize()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Capsule().fill(PanelTheme.eye))
+            .contentShape(Capsule())
+        if let pop {
+            badge.keyframeAnimator(initialValue: CGFloat(1), trigger: count) { content, scale in
+                content.scaleEffect(scale)
+            } keyframes: { _ in
+                CubicKeyframe(pop.scale, duration: pop.rise)
+                CubicKeyframe(1, duration: pop.fall)
+            }
+        } else {
+            badge
+        }
     }
 }
 

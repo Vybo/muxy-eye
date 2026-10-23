@@ -1,5 +1,20 @@
 import CoreGraphics
 
+/// A brief scale bump: up to `scale` over `rise` seconds, back to 1 over `fall`.
+public struct Pop: Sendable, Equatable {
+    public var scale: CGFloat
+    public var rise: Double
+    public var fall: Double
+
+    public init(scale: CGFloat, rise: Double, fall: Double) {
+        self.scale = scale
+        self.rise = rise
+        self.fall = fall
+    }
+
+    public var totalTime: Double { rise + fall }
+}
+
 /// The eye's animations, after the approved "island spring" mockup: the eye stretches into the
 /// panel with a slight overshoot and the content cascades in; closing fades the content out, then
 /// pulls the shape back into the eye without overshoot.
@@ -45,6 +60,13 @@ public struct PanelMotion: Sendable, Equatable {
 
     /// The signal line and count fading as the shape starts to grow.
     public var eyeOut: Motion { Motion(.easeOut(duration: 0.12)) }
+
+    /// The collapsed eye changing shape: the notch's right wing growing out or retracting, the
+    /// count badge appearing or leaving.
+    public var collapsedChange: Motion { Motion(.spring(response: 0.35, dampingFraction: 0.8)) }
+
+    /// The count's bump when it changes; nil for none.
+    public var countPop: Pop? { Pop(scale: 1.25, rise: 0.09, fall: 0.24) }
 
     // MARK: Rail
 

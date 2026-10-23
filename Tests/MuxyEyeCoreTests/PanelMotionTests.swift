@@ -80,6 +80,24 @@ import Testing
         #expect(change.totalTime < 0.8)
     }
 
+    @Test func wingGrowsAndRetractsWithoutAVisibleBounce() {
+        let wing = motion.collapsedChange
+        #expect(wing.delay == 0)
+        #expect(wing.curve.overshoot * EyeLayout.wingWidth < 1)
+        #expect(wing.totalTime < 0.6)
+    }
+
+    @Test func countPopsBrieflyWithinTheMotionMargin() throws {
+        let pop = try #require(motion.countPop)
+        #expect(pop.scale > 1.1)
+        #expect(pop.scale <= 1.3)
+        #expect(pop.rise < pop.fall)
+        #expect(pop.totalTime <= 0.4)
+        // The bumped badge must not be clipped by the window, which grows by at least 8 points.
+        let overflow = (pop.scale - 1) * max(EyeLayout.badgeSize.width, EyeLayout.badgeSize.height) / 2
+        #expect(overflow <= PanelMotion.overshootMargin(forTravel: 0))
+    }
+
     @Test(arguments: [100.0, 600.0, 900.0])
     func marginCoversTheOpeningOvershoot(travel: Double) throws {
         let open = try #require(motion.shapeOpen)
