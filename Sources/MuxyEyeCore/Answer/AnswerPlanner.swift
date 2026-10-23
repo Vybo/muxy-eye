@@ -45,15 +45,8 @@ public enum AnswerPlanner {
         case .finished:
             return idlePrompt
         case .permission(let request):
-            guard case .permission(_, let body, _, _)? = screen else { return false }
-            guard let primary = request.primaryText else { return true }
-            let squashedBody = squash(body)
-            if squashedBody.contains(squash(primary)) { return true }
-            if fileTools.contains(request.toolName) {
-                let name = (primary as NSString).lastPathComponent
-                return !name.isEmpty && squashedBody.contains(squash(name))
-            }
-            return false
+            guard case .permission(let title, let body, _, _)? = screen else { return false }
+            return permissionMatches(request, title: title, body: body)
         case .question(let request):
             guard case .question(_, _, let options, _)? = screen,
                   let question = request.current(on: screen)
@@ -123,6 +116,26 @@ public enum AnswerPlanner {
         case .question(_, _, let options, let isMulti): (options, isMulti)
         case .submitReview: nil
         }
+    }
+
+    private static func permissionMatches(_ request: PermissionRequest, title: String, body: String) -> Bool {
+        guard let primary = request.primaryText, !squash(primary).isEmpty else {
+            return squash(title + body).contains(squash(request.toolName))
+        }
+        let target = squash(primary)
+        let lines = body.split(separator: "\n", omittingEmptySubsequences: false).map { squash(String($0)) }
+        if fileTools.contains(request.toolName) {
+            return lines.contains { !$0.isEmpty && (target == $0 || target.hasSuffix("/" + $0)) }
+        }
+        for i in lines.indices {
+            var joined = ""
+            for j in i..<lines.count {
+                joined += lines[j]
+                if joined == target { return true }
+                if joined.count >= target.count { break }
+            }
+        }
+        return false
     }
 
     private static func squash(_ text: String) -> String {
