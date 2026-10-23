@@ -64,4 +64,26 @@ import Testing
         guard case .permission(_, _, _, let options) = ScreenParser.parse(s) else { Issue.record(""); return }
         #expect(options.first?.label == "Yes")
     }
+
+    @Test func bodyLinesShapedLikeOptionsAreNotOptions() throws {
+        let s = try screen("permission-bash").replacingOccurrences(of: " touch spike-ok.txt\n", with: " echo start\n 1. step one\n 2. step two\n touch spike-ok.txt\n")
+        guard case .permission(_, let body, _, let options) = ScreenParser.parse(s) else { Issue.record("no prompt"); return }
+        #expect(options.map(\.number) == [1, 2, 3, 4])
+        #expect(options[0].label == "Yes")
+        #expect(body.contains("1. step one"))
+        #expect(body.contains("touch spike-ok.txt"))
+    }
+    @Test func footerWithoutRuleAboveIsNotAPrompt() throws {
+        let s = "some output\n more output\n Do you want to proceed?\n 1. Yes\n 2. No\n\n Esc to cancel\n"
+        #expect(ScreenParser.parse(s) == nil)
+    }
+    @Test func checklistMarkerInPermissionBodyStaysPermission() throws {
+        let s = try screen("permission-write").replacingOccurrences(of: "  1 hello", with: "  1 ☐ todo item")
+        guard case .permission(let title, _, _, _) = ScreenParser.parse(s) else { Issue.record("not a permission"); return }
+        #expect(title == "Create file")
+    }
+    @Test func parsesBashRmPermission() throws {
+        guard case .permission(_, let body, _, _) = ScreenParser.parse(try screen("permission-bash-rm")) else { Issue.record("no prompt"); return }
+        #expect(body.contains("rm spike-ok.txt"))
+    }
 }

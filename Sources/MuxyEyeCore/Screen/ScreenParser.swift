@@ -15,21 +15,22 @@ public enum ScreenParser {
         let width = lines.map(\.count).max() ?? 0
 
         guard let first = lines.lastIndex(where: { optionLine($0)?.number == 1 }) else { return nil }
-        let start = (0..<first).reversed().first(where: { isRule(lines[$0]) }) ?? 0
+        guard let start = (0..<first).reversed().first(where: { isRule(lines[$0]) }) else { return nil }
         let footer = lines[first...].firstIndex { $0.contains("Esc to cancel") || $0.contains("Enter to select") }
         let end = footer ?? lines.count
         let block = Array(lines[start..<end])
         let firstInBlock = first - start
 
-        let isReview = block.contains { $0.contains("Ready to submit your answers?") }
+        let isReview = block[..<firstInBlock].contains { $0.contains("Ready to submit your answers?") }
         if footer == nil && !isReview { return nil }
 
-        let permissionStyle = !isReview && !block.contains { $0.contains("☐") || $0.contains("☒") }
-        let options = collectOptions(block, joinWrapped: permissionStyle, width: width)
+        let headerIndex = block[1..<max(firstInBlock, 1)].firstIndex { !trimmed($0).isEmpty }
+            .flatMap { index in (block[index].contains("☐") || block[index].contains("☒")) ? index : nil }
+        let options = collectOptions(Array(block[firstInBlock...]), joinWrapped: !isReview && headerIndex == nil, width: width)
 
         if isReview { return .submitReview(options: options) }
 
-        if let headerIndex = block.lastIndex(where: { $0.contains("☐") || $0.contains("☒") }) {
+        if let headerIndex {
             let header = headerText(block[headerIndex])
             let question = block[(headerIndex + 1)...].map(trimmed).first { !$0.isEmpty } ?? ""
             return .question(
