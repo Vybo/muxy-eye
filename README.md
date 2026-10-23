@@ -116,7 +116,7 @@ In a text field, Return sends the text and Esc closes the panel. Shortcuts with 
 
 Turn on **Expand automatically when an agent needs you** in Settings. It is off by default. When it is on:
 
-- the panel opens by itself whenever a new approval, question, or finished turn arrives;
+- the panel opens by itself whenever a session starts waiting: a new approval, question or finished turn, an agent that Muxy reports as blocked, or an unread completion from an agent other than Claude;
 - it never opens while Muxy (or Muxy Beta) is the frontmost app, because then you are looking at the terminal already;
 - it never takes keyboard focus, so whatever you are typing keeps going to the app you are typing in, and a stray key press can't answer a prompt. Click the panel when you want to use the keyboard there.
 
@@ -131,7 +131,7 @@ Muxy Eye mirrors the prompts. It doesn't own them.
 When you answer, Muxy Eye:
 
 1. reads the terminal again (`muxy session read-screen`);
-2. checks that it still shows the prompt you were looking at: the same kind of prompt, the same command or question, and the same option text.
+2. checks that the prompt is still the one you were looking at, and that the terminal still shows it: the same kind of prompt and the same command or question (for a question, also the same options), with the option you picked still on screen.
    - If anything differs, for example because you already answered in the terminal, it types nothing and shows **Prompt changed — Open in Muxy**.
 3. types the answer into that session, the way you would (`muxy session send` and `send-keys`):
    - an option is its number;
@@ -178,7 +178,7 @@ Press **Done** to finish, with or without the hooks. The setup window is shown o
 ### What installing the hooks changes
 
 - It edits `~/.claude/settings.json`. If Muxy Eye's environment sets `CLAUDE_CONFIG_DIR` to an absolute path, it edits `$CLAUDE_CONFIG_DIR/settings.json` instead.
-- If the file exists, it first saves a copy next to it, as `settings.json.muxy-eye-backup-<date>`. Everything else in the file is kept as it is.
+- If the file exists, it first saves a copy next to it, as `settings.json.muxy-eye-backup-<date>`. The file is then saved again with its keys sorted. All other entries and values are kept.
 - It adds one entry for each of `SessionStart`, `SessionEnd`, `UserPromptSubmit`, `PermissionRequest`, `PreToolUse` (only for `AskUserQuestion`), `PostToolUse`, `Notification` and `Stop`.
 - Every entry runs `~/Library/Application Support/Muxy Eye/bin/muxy-eye-hook`. That is a copy of the helper bundled in the app, refreshed each time the app starts.
 - Muxy Eye recognizes its own entries by `muxy-eye-hook` in the command. Install, Update and Remove only add or remove those entries.
@@ -213,12 +213,11 @@ Path changes apply when you press Return or leave the field. You can also open S
 
 - **Open in Muxy works per project.** It switches Muxy to the session's project, but it can't focus the exact tab or pane. Muxy has no way to do that from outside yet.
 - **After several questions, you submit in the terminal.** Claude then shows a "Review your answers" screen. The eye shows it read-only, without a Submit answers button, so use Open in Muxy.
-- **Multi-select inside a request with several questions isn't supported.** The eye stops rather than guess, and you answer it in the terminal.
+- **Multi-select inside a request with several questions isn't supported.** The eye may tick the boxes and then report **Couldn't confirm — Open in Muxy**. Finish that question in the terminal.
 - **A draft at Claude's prompt can look empty.** Suppose you typed a draft at Claude's prompt and moved the cursor back to the start of the line. Muxy Eye can't tell that apart from Claude's grey prompt suggestion, so a reply from the eye would be typed in front of your draft.
 - **Prompt content is for Claude Code only.** Other agents in Muxy show their state, but not their prompts.
 - **Only sessions in Muxy terminals on this Mac are covered.** Claude sessions outside Muxy, and remote Muxy servers (`muxy --host`), are not covered.
 - **Some prompt layouts can't be read.** If a Claude Code update changes how prompts look in the terminal, Muxy Eye can't read the options any more. Those prompts then show only Open in Muxy, rather than risk a wrong answer.
-- **Builds aren't signed with a Developer ID.** They are signed ad hoc only. Developer ID signing and notarization come later.
 
 ## Uninstall
 

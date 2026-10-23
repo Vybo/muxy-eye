@@ -80,6 +80,11 @@ These checks cover what the unit tests can't: the window, focus, displays, and t
 - [ ] **Two questions in one request:**
   - [ ] after question 1 is answered in the panel, question 2 appears and can be answered there;
   - [ ] after question 2, Claude's review screen shows read-only, with Open in Muxy (known limitation).
+- [ ] **Multi-select inside a request with several questions** (known limitation): Submit in the panel. Note what you see:
+  - [ ] whether the boxes get ticked in the terminal;
+  - [ ] whether the terminal moves to the next question or to the review screen;
+  - [ ] which banner the eye shows (expected: "Couldn't confirm — Open in Muxy");
+  - [ ] that you can still finish the request in the terminal.
 - [ ] **Finished turn:**
   - [ ] the panel shows Claude's last message, Reply and Dismiss;
   - [ ] Reply sends the text as the next prompt, with Claude's prompt suggestions on (the default);
@@ -123,9 +128,11 @@ These checks cover what the unit tests can't: the window, focus, displays, and t
   - [ ] Install, the restart hint, Launch at login, and Done.
 - [ ] Closing the setup window, with Done or with the red button, means it doesn't come back on the next launch.
 - [ ] **Install:**
-  - [ ] the hooks are merged into Claude's settings, and everything else is kept;
+  - [ ] the hooks are merged into Claude's settings, and every other entry and value is kept (the keys may be re-sorted);
   - [ ] a `settings.json.muxy-eye-backup-<date>` copy is written next to the file;
   - [ ] Muxy 1.x hooks (`muxy-claude-hook.sh`) are left as they were;
+  - [ ] the file has exactly 8 entries containing `muxy-eye-hook` (`grep -c muxy-eye-hook ~/.claude/settings.json` prints 8);
+  - [ ] the helper is in place: `test -x ~/"Library/Application Support/Muxy Eye/bin/muxy-eye-hook" && echo ok` prints ok;
   - [ ] the status says Installed.
 - [ ] **Update:** after an older install, the status says Needs update, and Update fixes it.
 - [ ] **Remove:** only entries containing `muxy-eye-hook` are removed.
