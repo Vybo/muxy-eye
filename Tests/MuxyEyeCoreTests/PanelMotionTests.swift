@@ -61,6 +61,25 @@ import Testing
         #expect(motion.closeDuration < 1)
     }
 
+    @Test func selectionSlidesQuicklyWithoutBouncing() {
+        let selection = motion.selection
+        #expect(selection.delay == 0)
+        #expect(selection.curve.overshoot < 0.01)
+        #expect(selection.totalTime < 0.6)
+    }
+
+    @Test func detailCrossFadesQuickly() {
+        #expect(motion.detailSwap.curve == .easeInOut(duration: 0.18))
+        #expect(motion.detailSwap.delay == 0)
+    }
+
+    @Test func railChangesSettleWellBeforeTheNextPoll() {
+        let change = motion.railChange
+        #expect(change.delay == 0)
+        #expect(change.curve.overshoot < 0.01)
+        #expect(change.totalTime < 0.8)
+    }
+
     @Test(arguments: [100.0, 600.0, 900.0])
     func marginCoversTheOpeningOvershoot(travel: Double) throws {
         let open = try #require(motion.shapeOpen)

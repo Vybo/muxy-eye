@@ -43,12 +43,17 @@ struct ExpandedPanelView: View {
                 Rectangle()
                     .fill(PanelTheme.divider)
                     .frame(width: 1)
-                SessionDetailView(model: model, record: record)
-                    .id(record.id)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { detailHeight = $0 }
-                    .reveal(revealed, show: motion.detailIn, hide: motion.contentOut, slide: motion.contentSlide)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                // Another session's detail cross-fades in over the last one.
+                ZStack(alignment: .topLeading) {
+                    SessionDetailView(model: model, record: record)
+                        .id(record.id)
+                        .transition(.opacity)
+                }
+                .animation(motion.detailSwap.animation, value: record.id)
+                .fixedSize(horizontal: false, vertical: true)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { detailHeight = $0 }
+                .reveal(revealed, show: motion.detailIn, hide: motion.contentOut, slide: motion.contentSlide)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
         } else {
             Text(state.muxyRunning ? "No agent sessions in Muxy" : AppModel.muxyNotRunningReason)

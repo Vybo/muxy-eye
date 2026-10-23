@@ -46,6 +46,17 @@ public struct PanelMotion: Sendable, Equatable {
     /// The signal line and count fading as the shape starts to grow.
     public var eyeOut: Motion { Motion(.easeOut(duration: 0.12)) }
 
+    // MARK: Rail
+
+    /// The selection highlight sliding to another row.
+    public var selection: Motion { Motion(.spring(response: 0.32, dampingFraction: 0.86)) }
+
+    /// The detail cross-fading to another session.
+    public var detailSwap: Motion { Motion(.easeInOut(duration: 0.18)) }
+
+    /// Rows arriving, leaving or changing places.
+    public var railChange: Motion { Motion(.spring(response: 0.35, dampingFraction: 0.9)) }
+
     // MARK: Settling
 
     /// Seconds until the opening shape has settled, so the window can shrink to the panel.
