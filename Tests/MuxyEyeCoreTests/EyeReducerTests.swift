@@ -80,6 +80,28 @@ import Testing
         #expect(try #require(s.sessions[a]).pending == nil)
     }
 
+    @Test func newPromptDoesNotInheritEarlierBlockedState() throws {
+        var s = EyeState()
+        let second = PermissionRequest(toolName: "Bash", toolInput: .object(["command": .string("pwd")]))
+        run(&s, .snapshot(snap([agent("A", .working)]), at: t(0)))
+        run(&s, .hook(hook("A", .permission(permission)), at: t(0)))
+        run(&s, .snapshot(snap([agent("A", .blocked)]), at: t(1)))
+        run(&s, .hook(hook("A", .permission(second)), at: t(2)))
+        #expect(try #require(s.sessions[a]).pending?.sawBlocked == false)
+        run(&s, .snapshot(snap([agent("A", .working)]), at: t(3)))
+        #expect(try #require(s.sessions[a]).pending?.kind == .permission(second))
+        run(&s, .snapshot(snap([agent("A", .working)]), at: t(13)))
+        #expect(try #require(s.sessions[a]).pending == nil)
+    }
+
+    @Test func newQuestionDoesNotInheritEarlierBlockedState() throws {
+        var s = EyeState()
+        run(&s, .snapshot(snap([agent("A", .blocked)]), at: t(0)))
+        run(&s, .hook(hook("A", .question(question)), at: t(1)))
+        run(&s, .snapshot(snap([agent("A", .working)]), at: t(2)))
+        #expect(try #require(s.sessions[a]).pending?.kind == .question(question))
+    }
+
     func toolUse(_ name: String, _ input: JSONValue, id: String? = nil, agent: String? = nil) -> ClaudeHookEvent {
         .postToolUse(ToolUse(toolName: name, toolInput: input, toolUseID: id, agentID: agent))
     }

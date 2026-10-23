@@ -151,11 +151,12 @@ public enum EyeReducer {
             record.pending = nil
         case .userPromptSubmit:
             record.pending = nil
+        // A new prompt starts unseen: a `blocked` from the last snapshot may belong to the prompt it replaces.
         case let .permission(request):
-            record.pending = PendingItem(kind: .permission(request), receivedAt: now, sawBlocked: record.muxyState == .blocked)
+            record.pending = PendingItem(kind: .permission(request), receivedAt: now, sawBlocked: false)
             effects.append(.becameWaiting(id))
         case let .question(request):
-            record.pending = PendingItem(kind: .question(request), receivedAt: now, sawBlocked: record.muxyState == .blocked)
+            record.pending = PendingItem(kind: .question(request), receivedAt: now, sawBlocked: false)
             effects.append(.becameWaiting(id))
         case let .postToolUse(use):
             if let pending = record.pending, pending.kind.isCompleted(by: use) { record.pending = nil }
