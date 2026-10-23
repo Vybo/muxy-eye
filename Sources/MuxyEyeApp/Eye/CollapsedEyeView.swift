@@ -1,35 +1,39 @@
 import MuxyEyeCore
 import SwiftUI
 
-/// The collapsed eye: a black circle (or the widened notch) with the signal line and the waiting count.
-/// Only the visible shapes take clicks; the transparent rest of the panel does not.
-struct CollapsedEyeView: View {
-    private static let notchCornerRadius: CGFloat = 10
-
+/// The collapsed eye's black shape: a circle, or the widened notch. A click on it expands the panel.
+/// Only the visible shapes take clicks; the transparent rest of the stage does not.
+struct CollapsedEyeShape: View {
     let model: AppModel
-    let layout: CollapsedLayout
+    let stage: EyeStage
 
     var body: some View {
-        let size = layout.panelFrame.size
-        let state = model.state
-        ZStack {
-            if let shape = layout.shapeFrame {
-                UnevenRoundedRectangle(
-                    bottomLeadingRadius: Self.notchCornerRadius,
-                    bottomTrailingRadius: Self.notchCornerRadius,
-                    style: .continuous
-                )
-                .fill(PanelTheme.eye)
-                .place(in: shape, panelHeight: size.height)
-            } else {
-                Capsule()
-                    .fill(PanelTheme.eye)
-                    .place(in: layout.eyeFrame, panelHeight: size.height)
-            }
+        let outline = stage.local(EyeLayout.collapsedOutline(stage.collapsed))
+        OutlineShape(outline: outline)
+            .fill(PanelTheme.eye)
+            .animation(stage.collapsedMotion, value: outline)
+            .onTapGesture { model.expand(focus: true) }
+            .contextMenu { EyeMenu(model: model) }
+    }
+}
 
+/// The collapsed eye's signal line and, with something waiting, the count. They sit over the panel's
+/// shape, so they dissolve into it as it grows out of the eye and come back as it lands.
+struct CollapsedEyeGlyphs: View {
+    let model: AppModel
+    let stage: EyeStage
+
+    @State private var appeared = false
+
+    var body: some View {
+        let layout = stage.collapsed
+        let state = model.state
+        let motion = PanelMotion()
+        let visible = appeared && !stage.phase.isExpanding
+        ZStack(alignment: .topLeading) {
             SignalLineEyeView(mode: state.mode)
                 .allowsHitTesting(false)
-                .place(in: layout.eyeFrame, panelHeight: size.height)
+                .place(in: stage.local(layout.onScreen(layout.eyeFrame)))
 
             if let countFrame = layout.countFrame {
                 Text("\(state.waitingCount)")
@@ -41,24 +45,26 @@ struct CollapsedEyeView: View {
                     .frame(width: countFrame.width, height: countFrame.height)
                     .background(Capsule().fill(PanelTheme.eye))
                     .contentShape(Capsule())
-                    .place(in: countFrame, panelHeight: size.height)
+                    .onTapGesture { model.expand(focus: true) }
+                    .contextMenu { EyeMenu(model: model) }
+                    .place(in: stage.local(layout.onScreen(countFrame)))
             }
         }
-        .frame(width: size.width, height: size.height)
-        .onTapGesture { model.expand(focus: true) }
-        .contextMenu {
-            Button("Settings…") { model.openSettings() }
-            Button("Hide for 1 Hour") { model.hidePanel(for: .seconds(3600)) }
-            Divider()
-            Button("Quit Muxy Eye") { NSApp.terminate(nil) }
-        }
+        .animation(stage.collapsedMotion, value: layout)
+        .reveal(visible, show: motion.eyeIn, hide: motion.eyeOut)
+        .allowsHitTesting(visible)
+        .onAppear { appeared = true }
     }
 }
 
-private extension View {
-    /// Places the view at `rect`, given in AppKit panel coordinates (origin at the bottom left).
-    func place(in rect: CGRect, panelHeight: CGFloat) -> some View {
-        frame(width: rect.width, height: rect.height)
-            .position(x: rect.midX, y: panelHeight - rect.midY)
+/// The eye's context menu.
+struct EyeMenu: View {
+    let model: AppModel
+
+    var body: some View {
+        Button("Settings…") { model.openSettings() }
+        Button("Hide for 1 Hour") { model.hidePanel(for: .seconds(3600)) }
+        Divider()
+        Button("Quit Muxy Eye") { NSApp.terminate(nil) }
     }
 }

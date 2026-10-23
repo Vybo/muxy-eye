@@ -1,45 +1,44 @@
 import MuxyEyeCore
 import SwiftUI
 
-/// The expanded panel: a black sheet with rounded bottom corners, the sessions rail on the left and
-/// the selected session's prompt on the right. It reports the height it wants through `onHeightChange`.
+/// The expanded panel's content: the sessions rail on the left and the selected session's prompt on
+/// the right, over the panel's black shape (drawn by the stage). It reports the height it wants
+/// through `onHeightChange`. It cascades in once it is on screen, and fades out when `contentShown` turns false.
 struct ExpandedPanelView: View {
     static let railWidth: CGFloat = 150
-    private static let cornerRadius: CGFloat = 22
     private static let minContentHeight: CGFloat = 150
 
     let model: AppModel
     /// Room left at the top for the physical notch; the background still covers it.
     let topInset: CGFloat
+    /// The panel is open or opening; false while it closes.
+    let contentShown: Bool
     let onHeightChange: (CGFloat) -> Void
 
     @State private var railHeight: CGFloat = 0
     @State private var detailHeight: CGFloat = 0
+    @State private var appeared = false
 
     var body: some View {
-        let shape = UnevenRoundedRectangle(
-            bottomLeadingRadius: Self.cornerRadius,
-            bottomTrailingRadius: Self.cornerRadius,
-            style: .continuous
-        )
+        let motion = PanelMotion()
+        let revealed = appeared && contentShown
         VStack(spacing: 0) {
             Color.clear.frame(height: topInset)
-            content
+            content(revealed: revealed, motion: motion)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(shape.fill(PanelTheme.background))
-        .clipShape(shape)
-        .contentShape(shape)
+        .reveal(revealed, show: motion.contentIn, hide: motion.contentOut)
         .environment(\.colorScheme, .dark)
         .onChange(of: desiredHeight, initial: true) { _, height in onHeightChange(height) }
+        .onAppear { appeared = true }
     }
 
     @ViewBuilder
-    private var content: some View {
+    private func content(revealed: Bool, motion: PanelMotion) -> some View {
         let state = model.state
         if let record = selectedRecord {
             HStack(alignment: .top, spacing: 0) {
-                SessionRailView(model: model) { railHeight = $0 }
+                SessionRailView(model: model, revealed: revealed) { railHeight = $0 }
                     .frame(width: Self.railWidth)
                 Rectangle()
                     .fill(PanelTheme.divider)
@@ -48,6 +47,7 @@ struct ExpandedPanelView: View {
                     .id(record.id)
                     .fixedSize(horizontal: false, vertical: true)
                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { detailHeight = $0 }
+                    .reveal(revealed, show: motion.detailIn, hide: motion.contentOut, slide: motion.contentSlide)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
         } else {

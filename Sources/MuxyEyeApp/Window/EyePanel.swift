@@ -2,9 +2,15 @@ import AppKit
 
 /// A borderless, non-activating panel above the menu bar that hosts the eye.
 final class EyePanel: NSPanel {
-    var isExpanded = false {
+    /// Expanded or expanding: a click in it gives it the keyboard.
+    var isExpanded = false
+
+    /// The window's drop shadow, only for the expanded panel at rest: the window server computes it
+    /// from the window's shape, which it can't follow while the panel's shape animates inside.
+    var showsShadow = false {
         didSet {
-            hasShadow = isExpanded
+            guard showsShadow != oldValue else { return }
+            hasShadow = showsShadow
             invalidateShadow()
         }
     }

@@ -40,12 +40,33 @@ public struct CollapsedLayout: Sendable, Equatable {
         self.countFrame = countFrame
         self.shapeFrame = shapeFrame
     }
+
+    /// One of the layout's frames, which are relative to the panel, in screen coordinates.
+    public func onScreen(_ rect: CGRect) -> CGRect {
+        rect.offsetBy(dx: panelFrame.minX, dy: panelFrame.minY)
+    }
+}
+
+/// The outline of one of the eye's black shapes: a frame on screen, square or rounded on top,
+/// rounded below. The shapes morph between these.
+public struct EyeOutline: Sendable, Equatable {
+    public var frame: CGRect
+    public var topRadius: CGFloat
+    public var bottomRadius: CGFloat
+
+    public init(frame: CGRect, topRadius: CGFloat, bottomRadius: CGFloat) {
+        self.frame = frame
+        self.topRadius = topRadius
+        self.bottomRadius = bottomRadius
+    }
 }
 
 public enum EyeLayout {
     public static let wingWidth: CGFloat = 34
     public static let panelWidth: CGFloat = 640
     public static let badgeSize = CGSize(width: 18, height: 16)
+    public static let notchCornerRadius: CGFloat = 10
+    public static let panelCornerRadius: CGFloat = 22
 
     private static let badgeGap: CGFloat = 4
     private static let fallbackMenuBarHeight: CGFloat = 24
@@ -58,6 +79,44 @@ public enum EyeLayout {
         let centerX = screen.hasNotch ? (screen.notchMinX + screen.notchMaxX) / 2 : screen.frame.midX
         let height = min(contentHeight, screen.visibleFrame.height * 3 / 5)
         return CGRect(x: centerX - panelWidth / 2, y: screen.frame.maxY - height, width: panelWidth, height: height)
+    }
+
+    /// The collapsed eye's black shape: the widened notch, square on top, or the eye's circle.
+    public static func collapsedOutline(_ layout: CollapsedLayout) -> EyeOutline {
+        if let shape = layout.shapeFrame {
+            return EyeOutline(frame: layout.onScreen(shape), topRadius: 0, bottomRadius: notchCornerRadius)
+        }
+        let eye = layout.onScreen(layout.eyeFrame)
+        let radius = min(eye.width, eye.height) / 2
+        return EyeOutline(frame: eye, topRadius: radius, bottomRadius: radius)
+    }
+
+    /// The expanded panel's black shape: square on top, rounded below.
+    public static func expandedOutline(_ frame: CGRect) -> EyeOutline {
+        EyeOutline(frame: frame, topRadius: 0, bottomRadius: panelCornerRadius)
+    }
+
+    /// Room around a moving shape for its overshoot, enough for the tallest panel on `screen`.
+    public static func motionMargin(on screen: ScreenGeometry) -> CGFloat {
+        let tallest = expandedFrame(on: screen, contentHeight: .greatestFiniteMagnitude)
+        return PanelMotion.overshootMargin(forTravel: max(tallest.height, tallest.width / 2))
+    }
+
+    /// Everything the eye can draw on `screen`, in screen coordinates: the tallest panel, the eye with
+    /// and without its count, and the motion margin around them, from the top of the screen down.
+    public static func stageFrame(on screen: ScreenGeometry) -> CGRect {
+        let margin = motionMargin(on: screen)
+        let shapes = expandedFrame(on: screen, contentHeight: .greatestFiniteMagnitude)
+            .union(collapsed(on: screen, waitingCount: 0).panelFrame)
+            .union(collapsed(on: screen, waitingCount: 2).panelFrame)
+            .insetBy(dx: -margin, dy: -margin)
+        return CGRect(x: shapes.minX, y: shapes.minY, width: shapes.width, height: screen.frame.maxY - shapes.minY)
+    }
+
+    /// `rect`, in screen coordinates, measured from the top left of `stage` with y growing down,
+    /// as the stage's view lays it out.
+    public static func stageRect(_ rect: CGRect, in stage: CGRect) -> CGRect {
+        CGRect(x: rect.minX - stage.minX, y: stage.maxY - rect.maxY, width: rect.width, height: rect.height)
     }
 
     private static func plainLayout(_ screen: ScreenGeometry, waitingCount: Int) -> CollapsedLayout {

@@ -2,16 +2,19 @@ import MuxyEyeCore
 import SwiftUI
 
 /// The left rail: every agent session, waiting first, with a mini eye, the project and a subtitle.
+/// Its rows cascade in while `revealed` turns true and fade out when it turns false.
 struct SessionRailView: View {
     let model: AppModel
+    let revealed: Bool
     let onContentHeight: (CGFloat) -> Void
 
     var body: some View {
+        let motion = PanelMotion()
         ScrollView(.vertical) {
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 let state = model.state
                 VStack(spacing: 2) {
-                    ForEach(state.rail) { record in
+                    ForEach(Array(state.rail.enumerated()), id: \.element.id) { index, record in
                         Button {
                             model.select(record.id)
                         } label: {
@@ -23,6 +26,7 @@ struct SessionRailView: View {
                             )
                         }
                         .buttonStyle(.plain)
+                        .reveal(revealed, show: motion.rowIn(index), hide: motion.contentOut, slide: motion.contentSlide)
                     }
                 }
                 .padding(6)
