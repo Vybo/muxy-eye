@@ -18,9 +18,7 @@ struct EyeRootView: View {
             if phase.showsEye {
                 CollapsedEyeGlyphs(model: model, stage: stage)
             }
-            if phase.showsPanel {
-                PanelContent(model: model, stage: stage, onExpandedHeight: onExpandedHeight)
-            }
+            PanelContent(model: model, stage: stage, onExpandedHeight: onExpandedHeight)
         }
         .frame(width: size.width, height: size.height, alignment: .topLeading)
         .ignoresSafeArea()
@@ -50,6 +48,9 @@ private struct PanelBackground: View {
 
 /// The expanded panel's content at the panel's frame, clipped to the panel's shape as it moves.
 /// It takes clicks only while the panel is open or opening, never while it fades away.
+///
+/// The clip and the fade stay mounted at rest, so when the panel opens they animate from the eye's
+/// shape and from transparent; only the content inside them comes and goes.
 private struct PanelContent: View {
     let model: AppModel
     let stage: EyeStage
@@ -61,14 +62,18 @@ private struct PanelContent: View {
         let outline = stage.local(stage.panelOutline)
         let expanding = stage.phase.isExpanding
         ZStack(alignment: .topLeading) {
-            ExpandedPanelView(
-                model: model,
-                topInset: stage.topInset,
-                contentShown: expanding,
-                onHeightChange: onExpandedHeight
-            )
-            .frame(width: frame.width, height: frame.height)
-            .offset(x: frame.minX, y: frame.minY)
+            if stage.phase.showsPanel {
+                ExpandedPanelView(
+                    model: model,
+                    topInset: stage.topInset,
+                    contentShown: expanding,
+                    onHeightChange: onExpandedHeight
+                )
+                .frame(width: frame.width, height: frame.height)
+                .offset(x: frame.minX, y: frame.minY)
+                // It reveals itself; the clip and the fade around it do the rest.
+                .transition(.identity)
+            }
         }
         .frame(width: size.width, height: size.height, alignment: .topLeading)
         .mask(alignment: .topLeading) {
