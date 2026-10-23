@@ -172,15 +172,21 @@ import Testing
     }
 
     @Test func readAvailableReportsEndOfFile() throws {
+        // A socket pair, not a pipe: other tests spawn processes in parallel, and a child spawned while
+        // a pipe is open can inherit its write end, so closing ours wouldn't end the file. Shutting the
+        // socket down for writing ends it for the reader however many descriptors refer to it.
         var fds: [Int32] = [0, 0]
-        #expect(pipe(&fds) == 0)
-        defer { close(fds[0]) }
+        #expect(socketpair(AF_UNIX, SOCK_STREAM, 0, &fds) == 0)
+        defer {
+            close(fds[0])
+            close(fds[1])
+        }
         _ = fcntl(fds[0], F_SETFL, fcntl(fds[0], F_GETFL) | O_NONBLOCK)
         var buffer = Data()
         #expect(write(fds[1], "abc", 3) == 3)
         #expect(ProcessRun.readAvailable(fds[0], into: &buffer) == false)
         #expect(buffer == Data("abc".utf8))
-        close(fds[1])
+        #expect(shutdown(fds[1], SHUT_WR) == 0)
         #expect(ProcessRun.readAvailable(fds[0], into: &buffer) == true)
         #expect(buffer == Data("abc".utf8))
     }
