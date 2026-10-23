@@ -98,9 +98,7 @@ struct HooksControls: View {
                 Button("Remove") { model.removeHooks() }
             }
         }
-        if let message = model.hookMessage {
-            Text(message).font(.caption).foregroundStyle(.secondary)
-        }
+        Text(SetupText.restartHint).font(.caption).foregroundStyle(.secondary)
         if let error = model.hookError {
             Text(error).font(.caption).foregroundStyle(.red)
         }

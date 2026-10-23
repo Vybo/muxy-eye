@@ -28,7 +28,6 @@ struct OnboardingView: View {
             step("2. Claude hooks") {
                 Text("Hooks tell Muxy Eye the moment an agent needs you.").foregroundStyle(.secondary)
                 HooksControls(model: model)
-                Text(SetupText.restartHint).font(.caption).foregroundStyle(.secondary)
             }
 
             step("3. Startup") {

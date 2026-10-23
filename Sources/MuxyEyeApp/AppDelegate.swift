@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let settings: AppSettings
     let model: AppModel
     private let launchAtLogin = LaunchAtLogin()
@@ -34,6 +34,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: Windows
 
+    /// Onboarding is shown once, however its window is closed.
+    func windowWillClose(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow, window === onboardingWindow else { return }
+        settings.didOnboard = true
+        onboardingWindow = nil
+    }
+
     private func showSettings() {
         if settingsWindow == nil {
             settingsWindow = makeWindow(
@@ -46,11 +53,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showOnboarding() {
         let view = OnboardingView(model: model, settings: settings, launchAtLogin: launchAtLogin) { [weak self] in
-            self?.settings.didOnboard = true
             self?.onboardingWindow?.close()
-            self?.onboardingWindow = nil
         }
         onboardingWindow = makeWindow(title: "Welcome to Muxy Eye", content: view)
+        onboardingWindow?.delegate = self
         bringFront(onboardingWindow)
     }
 

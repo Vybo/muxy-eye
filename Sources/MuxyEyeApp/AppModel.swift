@@ -50,7 +50,6 @@ final class AppModel {
     private(set) var muxyExecutable: URL?
     private(set) var buildInfo: MuxyBuildInfo?
     private(set) var hookStatus: HookInstallStatus?
-    private(set) var hookMessage: String?
     private(set) var hookError: String?
 
     @ObservationIgnored let settings: AppSettings
@@ -127,12 +126,10 @@ final class AppModel {
     }
 
     func installHooks() {
-        hookMessage = nil
         do {
             let bundled = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/muxy-eye-hook")
             try HookInstaller.installHelper(from: bundled, to: HookWire.installedHelperURL(home: home))
             try hookInstaller.install()
-            hookMessage = SetupText.restartHint
             refreshHookStatus()
         } catch {
             hookError = SetupText.hookError(error)
@@ -140,7 +137,6 @@ final class AppModel {
     }
 
     func removeHooks() {
-        hookMessage = nil
         do {
             try hookInstaller.uninstall()
             refreshHookStatus()

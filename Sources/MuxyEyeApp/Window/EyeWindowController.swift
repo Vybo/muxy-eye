@@ -41,8 +41,11 @@ final class EyeWindowController: EyePresenting {
         hiddenTask = Task { [weak self] in
             do { try await Task.sleep(for: duration) } catch { return }
             self?.hiddenTask = nil
-            self?.updateFrame()
-            self?.panel.orderFrontRegardless()
+            guard let self else { return }
+            self.updateFrame()
+            self.panel.orderFrontRegardless()
+            // Restores the event monitor when auto-expand opened the panel while it was hidden.
+            self.present(expanded: self.model.expanded, focus: false)
         }
     }
 
