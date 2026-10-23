@@ -44,7 +44,7 @@ import Testing
         let p = try pending("pre-tool-use-question-single")
         #expect(AnswerPlanner.steps(for: .option(2), pending: p, screen: s, idlePrompt: false) == .success([.text("2")]))
         #expect(AnswerPlanner.steps(for: .freeText("Teal"), pending: p, screen: s, idlePrompt: false)
-                == .success([.text("4"), .text("Teal"), .key(.enter)]))
+                == .success([.text("4"), .expectFreeTextField(option: 4, question: "Which color do you prefer?"), .text("Teal"), .key(.enter)]))
         #expect(AnswerPlanner.steps(for: .option(9), pending: p, screen: s, idlePrompt: false) == .failure(.noMatchingOption))
         #expect(AnswerPlanner.steps(for: .multiSelect([1]), pending: p, screen: s, idlePrompt: false) == .failure(.unsupported))
         #expect(AnswerPlanner.steps(for: .reply("x"), pending: p, screen: s, idlePrompt: true) == .failure(.promptChanged))
@@ -137,6 +137,17 @@ import Testing
     @Test func multiSelectOutOfRangeIsNoMatchingOption() throws {
         let s = try screen("question-multi-toggled")
         #expect(AnswerPlanner.steps(for: .multiSelect([5]), pending: try pending("pre-tool-use-question-multi"), screen: s, idlePrompt: false) == .failure(.noMatchingOption))
+    }
+
+    @Test func freeTextFieldIsOpenWhenItsRowHasTheCursor() throws {
+        let question = "Which color do you prefer?"
+        #expect(AnswerPlanner.isFreeTextFieldOpen(option: 4, question: question, on: try screen("question-single-type-something")))
+        #expect(!AnswerPlanner.isFreeTextFieldOpen(option: 4, question: question, on: try screen("question-single")))
+        #expect(!AnswerPlanner.isFreeTextFieldOpen(option: 3, question: question, on: try screen("question-single-type-something")))
+        #expect(!AnswerPlanner.isFreeTextFieldOpen(option: 4, question: "Which size?", on: try screen("question-single-type-something")))
+        #expect(!AnswerPlanner.isFreeTextFieldOpen(option: 4, question: question, on: nil))
+        let typed = try screen("question-single-type-something", replacing: "❯ 4. Type something.", with: "❯ 4. Teal")
+        #expect(!AnswerPlanner.isFreeTextFieldOpen(option: 4, question: question, on: typed))
     }
 
     @Test func freeTextOptionComesFromTheScreen() throws {

@@ -73,6 +73,34 @@ import Testing
         #expect(await sends(muxy) == ["send:s1:4"])
     }
 
+    @Test func freeTextWaitsForTheTextFieldThenTypes() async throws {
+        let muxy = FakeMuxy()
+        let single = try Fixture.text("screens/question-single.txt")
+        await muxy.setScreens([single, single, try Fixture.text("screens/question-single-type-something.txt")])
+        await muxy.setActivity([snapshot(.working)])
+        let outcome = await makeExecutor(muxy).perform(.freeText("Teal"), pending: try pending("pre-tool-use-question-single"), session: session)
+        #expect(outcome == .delivered)
+        #expect(await sends(muxy) == ["send:s1:4", "send:s1:Teal", "sendKey:s1:Enter"])
+    }
+
+    @Test func freeTextIsNotTypedWhenTheTextFieldNeverOpens() async throws {
+        let muxy = FakeMuxy()
+        await muxy.setScreens([try Fixture.text("screens/question-single.txt")])
+        await muxy.setActivity([snapshot(.blocked)])
+        let outcome = await makeExecutor(muxy, timeout: .milliseconds(200)).perform(.freeText("Teal"), pending: try pending("pre-tool-use-question-single"), session: session)
+        #expect(outcome == .notConfirmed)
+        #expect(await sends(muxy) == ["send:s1:4"])
+    }
+
+    @Test func freeTextIsNotTypedWhenTheQuestionWasAnsweredMeanwhile() async throws {
+        let muxy = FakeMuxy()
+        await muxy.setScreens([try Fixture.text("screens/question-single.txt"), try Fixture.text("screens/idle-after-deny.txt")])
+        await muxy.setActivity([snapshot(.idle)])
+        let outcome = await makeExecutor(muxy, timeout: .milliseconds(200)).perform(.freeText("Teal"), pending: try pending("pre-tool-use-question-single"), session: session)
+        #expect(outcome == .notConfirmed)
+        #expect(await sends(muxy) == ["send:s1:4"])
+    }
+
     @Test func multiSelectWaitsForReview() async throws {
         let muxy = FakeMuxy()
         await muxy.setScreens([try Fixture.text("screens/question-multi.txt"), try Fixture.text("screens/question-submit-review.txt")])

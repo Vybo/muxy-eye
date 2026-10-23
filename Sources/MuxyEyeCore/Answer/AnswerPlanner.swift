@@ -20,6 +20,8 @@ public enum AnswerStep: Sendable, Equatable {
     case key(NamedKey)
     case expectIdlePrompt
     case expectSubmitReview
+    /// Wait until `question` shows its empty "Type something" row, numbered `option`, as the cursor row.
+    case expectFreeTextField(option: Int, question: String)
 }
 
 public enum AnswerRejection: Error, Sendable, Equatable {
@@ -86,9 +88,16 @@ public enum AnswerPlanner {
             guard let no = denyOption(on: screen) else { return .failure(.noMatchingOption) }
             return .success([.text(String(no.number)), .expectIdlePrompt, .text(feedback), .key(.enter)])
         case .freeText(let text):
-            guard !isMulti, case .question = pending.kind else { return .failure(.unsupported) }
+            guard !isMulti, case .question = pending.kind,
+                  case .question(_, let question, _, _) = screen
+            else { return .failure(.unsupported) }
             guard let row = freeTextOption(on: screen) else { return .failure(.noMatchingOption) }
-            return .success([.text(String(row.number)), .text(text), .key(.enter)])
+            return .success([
+                .text(String(row.number)),
+                .expectFreeTextField(option: row.number, question: question),
+                .text(text),
+                .key(.enter)
+            ])
         case .multiSelect(let selected):
             guard isMulti, case .question(let request) = pending.kind,
                   let question = request.current(on: screen)
@@ -112,6 +121,15 @@ public enum AnswerPlanner {
     public static func freeTextOption(on screen: ScreenPrompt?) -> ScreenOption? {
         guard case .question(_, _, let options, _)? = screen else { return nil }
         return options.first { $0.label.hasPrefix("Type something") }
+    }
+
+    /// Whether `question` is on screen with its "Type something" row `option` focused and still empty,
+    /// so typed text goes into that field and nowhere else.
+    public static func isFreeTextFieldOpen(option: Int, question: String, on screen: ScreenPrompt?) -> Bool {
+        guard case .question(_, let text, _, _)? = screen, text == question,
+              let row = freeTextOption(on: screen)
+        else { return false }
+        return row.number == option && row.isCursor
     }
 
     /// A permission prompt's "No" row, which lets the user tell Claude what to do instead.

@@ -75,6 +75,12 @@ public actor AnswerExecutor {
                 }
                 guard reached else { return .notConfirmed }
                 lastWasKeystroke = false
+            case .expectFreeTextField(let option, let question):
+                let opened = try await waitForScreen(session) {
+                    AnswerPlanner.isFreeTextFieldOpen(option: option, question: question, on: ScreenParser.parse($0.text))
+                }
+                guard opened else { return .notConfirmed }
+                lastWasKeystroke = false
             }
         }
 
