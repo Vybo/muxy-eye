@@ -92,7 +92,7 @@ public struct MuxyCLI: MuxyControlling {
     }
 }
 
-private final class ProcessRun: @unchecked Sendable {
+final class ProcessRun: @unchecked Sendable {
     private let lock = NSLock()
     private var stdout = Data()
     private var stderr = Data()
@@ -129,13 +129,20 @@ private final class ProcessRun: @unchecked Sendable {
             let flags = fcntl(handle.fileDescriptor, F_GETFL)
             _ = fcntl(handle.fileDescriptor, F_SETFL, flags | O_NONBLOCK)
         }
-        outHandle.readabilityHandler = { _ in run.drain(outHandle, errHandle) }
-        errHandle.readabilityHandler = { _ in run.drain(outHandle, errHandle) }
+        // A handle at end of file stays readable, so its handler is removed there instead of spinning
+        // until the process exits.
+        outHandle.readabilityHandler = { handle in
+            if run.drain(handle, isError: false) { handle.readabilityHandler = nil }
+        }
+        errHandle.readabilityHandler = { handle in
+            if run.drain(handle, isError: true) { handle.readabilityHandler = nil }
+        }
 
         process.terminationHandler = { process in
             outHandle.readabilityHandler = nil
             errHandle.readabilityHandler = nil
-            run.drain(outHandle, errHandle)
+            run.drain(outHandle, isError: false)
+            run.drain(errHandle, isError: true)
             run.finish(exitCode: process.terminationStatus)
         }
 
@@ -162,21 +169,25 @@ private final class ProcessRun: @unchecked Sendable {
         }
     }
 
-    private func drain(_ out: FileHandle, _ err: FileHandle) {
+    /// Reads what the handle has available; true once it reaches end of file.
+    @discardableResult
+    private func drain(_ handle: FileHandle, isError: Bool) -> Bool {
         lock.lock()
         defer { lock.unlock() }
-        Self.readAvailable(out.fileDescriptor, into: &stdout)
-        Self.readAvailable(err.fileDescriptor, into: &stderr)
+        return isError
+            ? Self.readAvailable(handle.fileDescriptor, into: &stderr)
+            : Self.readAvailable(handle.fileDescriptor, into: &stdout)
     }
 
-    private static func readAvailable(_ fd: Int32, into buffer: inout Data) {
+    /// Reads a non-blocking descriptor until it has nothing more right now. True at end of file.
+    static func readAvailable(_ fd: Int32, into buffer: inout Data) -> Bool {
         var chunk = [UInt8](repeating: 0, count: 65536)
         while true {
             let count = read(fd, &chunk, chunk.count)
             if count > 0 {
                 buffer.append(chunk, count: count)
             } else {
-                return
+                return count == 0
             }
         }
     }

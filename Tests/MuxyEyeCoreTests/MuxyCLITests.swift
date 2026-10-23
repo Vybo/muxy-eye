@@ -171,6 +171,26 @@ import Testing
         }
     }
 
+    @Test func readAvailableReportsEndOfFile() throws {
+        var fds: [Int32] = [0, 0]
+        #expect(pipe(&fds) == 0)
+        defer { close(fds[0]) }
+        _ = fcntl(fds[0], F_SETFL, fcntl(fds[0], F_GETFL) | O_NONBLOCK)
+        var buffer = Data()
+        #expect(write(fds[1], "abc", 3) == 3)
+        #expect(ProcessRun.readAvailable(fds[0], into: &buffer) == false)
+        #expect(buffer == Data("abc".utf8))
+        close(fds[1])
+        #expect(ProcessRun.readAvailable(fds[0], into: &buffer) == true)
+        #expect(buffer == Data("abc".utf8))
+    }
+
+    @Test func outputIsKeptWhenChildClosesPipesBeforeExiting() async throws {
+        let h = try Harness(extra: "cat \"$FIXTURES/activity.json\"; exec 1>&- 2>&-; sleep 0.3; exit 0")
+        defer { h.cleanup() }
+        #expect(try await h.cli.activity().revision == 645)
+    }
+
     @Test func timeoutKillsProcess() async throws {
         let h = try Harness(extra: "sleep 5", timeout: .milliseconds(300))
         defer { h.cleanup() }
