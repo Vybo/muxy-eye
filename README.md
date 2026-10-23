@@ -6,6 +6,8 @@ Muxy Eye is a small macOS app that sits at the top center of your screen, styled
   <img src="docs/images/panel-approval.png" width="640" alt="The expanded Muxy Eye panel: a session rail on the left and a Bash approval for npm test on the right, with the numbered options Claude offers">
 </p>
 
+<sub>The screenshots on this page come from a demo setup: sample projects, a separate Muxy profile, and a demo Claude settings file.</sub>
+
 ## The eye
 
 The eye has three states:
