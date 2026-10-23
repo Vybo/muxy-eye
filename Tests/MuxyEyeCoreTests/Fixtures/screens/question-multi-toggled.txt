@@ -1,0 +1,40 @@
+
+❯ Use the AskUserQuestion tool to ask me one single-select question: 'Which color do you prefer?' with header
+  'Color' and options Red, Green, Blue (each with a short description). Then reply with only the answer.
+
+⏺ User answered Claude's questions:
+  ⎿  · Which color do you prefer? → Green
+
+⏺ Green
+
+✻ Churned for 3s · done 11:26 AM
+
+❯ Ask me the same color question again with AskUserQuestion, then reply with only the answer.
+
+⏺ User answered Claude's questions:
+  ⎿  · Which color do you prefer? → Teal please
+
+⏺ Teal
+
+✻ Cooked for 4s · done 11:26 AM
+
+❯ Use AskUserQuestion with ONE question, multiSelect true: 'Which platforms?' header 'Platforms', options
+  iOS, macOS, watchOS. Then reply with only the answer.
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+←  ☒ Platforms  ✔ Submit  →
+
+Which platforms?
+
+❯ 1. [✔] iOS
+         iPhone and iPad
+  2. [✔] macOS
+         Mac desktop and laptop
+  3. [ ] watchOS
+         Apple Watch
+  4. [ ] Type something
+     Submit
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  5. Chat about this
+
+Enter to select · ↑/↓ to navigate · Esc to cancel
+

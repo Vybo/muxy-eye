@@ -1,0 +1,40 @@
+claude --permission-mode default --model sonnet
+mise WARN  deprecated [idiomatic_version_file_disable_tools]: is deprecated, use idiomatic_version_file_enable
+_tools instead
+mise WARN  deprecated [idiomatic_version_file_disable_tools]: is deprecated, use idiomatic_version_file_enable
+_tools instead
+user.sample@sample-mac spike % claude --permission-mode default --model sonnet
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Accessing workspace:
+
+ /private/tmp/muxy-eye-spikes/claude-code-2.1.309/permission-and-question-prompts/sample-web-project/spike
+
+ Quick safety check: Is this a project you created or one you trust? (Like your own code, a well-known open
+ source project, or work from your team). If not, take a moment to review what's in this folder first.
+
+ Claude Code'll be able to read, edit, and execute files here.
+
+ Security guide
+
+ ❯ No, exit
+   Yes, I trust this folder
+
+ Enter to confirm · Esc to cancel
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

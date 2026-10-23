@@ -1,0 +1,30 @@
+{
+  "v": 1,
+  "event": "PermissionRequest",
+  "muxySessionID": "5602690846448319352",
+  "muxyServerID": "7dbd1e97a53243e3b76d2bcffc7b9387",
+  "payload": {
+    "session_id": "b66388e5-d65c-41e2-b38d-920e1aa443b8",
+    "transcript_path": "/Users/user.sample/.claude/projects/-private-tmp-muxy-eye-spikes-claude-code-2-1-309-permission-and-question-prompts-sample-web-project-spike/b66388e5-d65c-41e2-b38d-920e1aa443b8.jsonl",
+    "cwd": "/private/tmp/muxy-eye-spikes/claude-code-2.1.309/permission-and-question-prompts/sample-web-project/spike",
+    "scratchpad_dir": "/private/tmp/claude-501/-private-tmp-muxy-eye-spikes-claude-code-2-1-309-permission-and-question-prompts-sample-web-project-spike/b66388e5-d65c-41e2-b38d-920e1aa443b8/scratchpad",
+    "prompt_id": "52542a7c-a947-4c31-8fb4-7994b63781f5",
+    "permission_mode": "default",
+    "effort": {
+      "level": "medium"
+    },
+    "hook_event_name": "PermissionRequest",
+    "tool_name": "Write",
+    "tool_input": {
+      "file_path": "/private/tmp/muxy-eye-spikes/claude-code-2.1.309/permission-and-question-prompts/sample-web-project/spike/notes.md",
+      "content": "hello\nworld\n"
+    },
+    "permission_suggestions": [
+      {
+        "type": "setMode",
+        "mode": "acceptEdits",
+        "destination": "session"
+      }
+    ]
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "v": 1,
+  "event": "PostToolUse",
+  "muxySessionID": "5602690846448319352",
+  "muxyServerID": "7dbd1e97a53243e3b76d2bcffc7b9387",
+  "payload": {
+    "session_id": "b66388e5-d65c-41e2-b38d-920e1aa443b8",
+    "transcript_path": "/Users/user.sample/.claude/projects/-private-tmp-muxy-eye-spikes-claude-code-2-1-309-permission-and-question-prompts-sample-web-project-spike/b66388e5-d65c-41e2-b38d-920e1aa443b8.jsonl",
+    "cwd": "/private/tmp/muxy-eye-spikes/claude-code-2.1.309/permission-and-question-prompts/sample-web-project/spike",
+    "scratchpad_dir": "/private/tmp/claude-501/-private-tmp-muxy-eye-spikes-claude-code-2-1-309-permission-and-question-prompts-sample-web-project-spike/b66388e5-d65c-41e2-b38d-920e1aa443b8/scratchpad",
+    "prompt_id": "b559d413-6b6f-415e-b310-595fcdcae096",
+    "permission_mode": "default",
+    "effort": {
+      "level": "medium"
+    },
+    "hook_event_name": "PostToolUse",
+    "tool_name": "AskUserQuestion",
+    "tool_input": {
+      "questions": [
+        {
+          "question": "Which platforms?",
+          "header": "Platforms",
+          "options": [
+            {
+              "label": "iOS",
+              "description": "iPhone and iPad"
+            },
+            {
+              "label": "macOS",
+              "description": "Mac desktop and laptop"
+            },
+            {
+              "label": "watchOS",
+              "description": "Apple Watch"
+            }
+          ],
+          "multiSelect": true
+        }
+      ],
+      "answers": {
+        "Which platforms?": "iOS, macOS"
+      },
+      "annotations": {}
+    },
+    "tool_response": {
+      "questions": [
+        {
+          "question": "Which platforms?",
+          "header": "Platforms",
+          "options": [
+            {
+              "label": "iOS",
+              "description": "iPhone and iPad"
+            },
+            {
+              "label": "macOS",
+              "description": "Mac desktop and laptop"
+            },
+            {
+              "label": "watchOS",
+              "description": "Apple Watch"
+            }
+          ],
+          "multiSelect": true
+        }
+      ],
+      "answers": {
+        "Which platforms?": "iOS, macOS"
+      },
+      "annotations": {}
+    },
+    "tool_use_id": "toolu_01Q6j9ttB2pLxvdg2sLq1UPx",
+    "duration_ms": 1
+  }
+}

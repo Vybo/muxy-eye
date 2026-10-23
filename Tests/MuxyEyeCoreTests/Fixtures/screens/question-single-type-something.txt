@@ -1,0 +1,40 @@
+ ▝▝   ▝▝   /…/muxy-eye-spikes/claude-code-2.1.309/permission-and-question-prompts/sample-web-project/spike
+
+
+❯ Use the Bash tool to run exactly: touch spike-ok.txt  (do nothing else)
+
+⏺ Bash(touch spike-ok.txt)
+  ⎿  Done
+
+⏺ Done. spike-ok.txt created.
+
+✻ Crunched for 5s · done 11:26 AM
+
+❯ Use the AskUserQuestion tool to ask me one single-select question: 'Which color do you prefer?' with header
+  'Color' and options Red, Green, Blue (each with a short description). Then reply with only the answer.
+
+⏺ User answered Claude's questions:
+  ⎿  · Which color do you prefer? → Green
+
+⏺ Green
+
+✻ Churned for 3s · done 11:26 AM
+
+❯ Ask me the same color question again with AskUserQuestion, then reply with only the answer.
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ ☐ Color
+
+Which color do you prefer?
+
+  1. Red
+     Warm, bold color
+  2. Green
+     Natural, calm color
+  3. Blue
+     Cool, serene color
+❯ 4. Type something.
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  5. Chat about this
+
+Enter to select · ↑/↓ to navigate · ctrl+g to edit in VS Code · Esc to cancel
+

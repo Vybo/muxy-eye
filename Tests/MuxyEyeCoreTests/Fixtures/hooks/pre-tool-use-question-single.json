@@ -1,0 +1,43 @@
+{
+  "v": 1,
+  "event": "PreToolUse",
+  "muxySessionID": "5602690846448319352",
+  "muxyServerID": "7dbd1e97a53243e3b76d2bcffc7b9387",
+  "payload": {
+    "session_id": "b66388e5-d65c-41e2-b38d-920e1aa443b8",
+    "transcript_path": "/Users/user.sample/.claude/projects/-private-tmp-muxy-eye-spikes-claude-code-2-1-309-permission-and-question-prompts-sample-web-project-spike/b66388e5-d65c-41e2-b38d-920e1aa443b8.jsonl",
+    "cwd": "/private/tmp/muxy-eye-spikes/claude-code-2.1.309/permission-and-question-prompts/sample-web-project/spike",
+    "scratchpad_dir": "/private/tmp/claude-501/-private-tmp-muxy-eye-spikes-claude-code-2-1-309-permission-and-question-prompts-sample-web-project-spike/b66388e5-d65c-41e2-b38d-920e1aa443b8/scratchpad",
+    "prompt_id": "09c0ef1f-74b4-43c3-9dcb-2279134a31ef",
+    "permission_mode": "default",
+    "effort": {
+      "level": "medium"
+    },
+    "hook_event_name": "PreToolUse",
+    "tool_name": "AskUserQuestion",
+    "tool_input": {
+      "questions": [
+        {
+          "question": "Which color do you prefer?",
+          "header": "Color",
+          "options": [
+            {
+              "label": "Red",
+              "description": "Warm, bold color"
+            },
+            {
+              "label": "Green",
+              "description": "Natural, calm color"
+            },
+            {
+              "label": "Blue",
+              "description": "Cool, serene color"
+            }
+          ],
+          "multiSelect": false
+        }
+      ]
+    },
+    "tool_use_id": "toolu_011jJFCR3NVBetmrz5oRvWhb"
+  }
+}
