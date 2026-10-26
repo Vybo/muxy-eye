@@ -21,13 +21,14 @@ public enum MarkdownBlock: Sendable, Equatable {
 /// Splits a message into the block formatting the panel shows: paragraphs, headings, lists (one
 /// nesting level), fenced code, block quotes and rules. Anything else stays a paragraph.
 public enum MarkdownBlocks {
-    private static let fence = "```"
+    private static let fenceCharacter: Character = "`"
+    private static let minFenceLength = 3
     private static let nestingIndent = 2
     private static let tabWidth = 4
     private static let maxHeadingLevel = 6
 
-    public static func parse(_ text: String) -> [MarkdownBlock] {
-        let lines = text
+    public static func parse(_ text: String, maxCharacters: Int = .max) -> [MarkdownBlock] {
+        let lines = capped(text, to: maxCharacters)
             .replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n")
             .split(separator: "\n", omittingEmptySubsequences: false)
@@ -39,8 +40,8 @@ public enum MarkdownBlocks {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if trimmed.isEmpty {
                 index += 1
-            } else if trimmed.hasPrefix(fence) {
-                index = codeBlock(in: lines, from: index, into: &blocks)
+            } else if let opening = fenceOpening(trimmed) {
+                index = codeBlock(in: lines, from: index, opening: opening, into: &blocks)
             } else if isRule(trimmed) {
                 blocks.append(.rule)
                 index += 1
@@ -55,18 +56,37 @@ public enum MarkdownBlocks {
                 index = paragraph(in: lines, from: index, into: &blocks)
             }
         }
+        if truncated(text, to: maxCharacters) { blocks.append(.paragraph("…")) }
         return blocks
+    }
+
+    // MARK: Size limit
+
+    private static func truncated(_ text: String, to limit: Int) -> Bool {
+        text.count > limit
+    }
+
+    /// The text up to `limit` characters, cut back to the end of a whole line.
+    private static func capped(_ text: String, to limit: Int) -> String {
+        guard truncated(text, to: limit) else { return text }
+        let head = text.prefix(limit)
+        guard let lastBreak = head.lastIndex(where: { $0 == "\n" || $0 == "\r" }) else { return String(head) }
+        return String(head[..<lastBreak])
     }
 
     // MARK: Multi-line blocks
 
-    private static func codeBlock(in lines: [String], from start: Int, into blocks: inout [MarkdownBlock]) -> Int {
-        let opening = lines[start].trimmingCharacters(in: .whitespaces)
-        let language = String(opening.dropFirst(fence.count)).trimmingCharacters(in: .whitespaces)
+    private static func codeBlock(
+        in lines: [String],
+        from start: Int,
+        opening: Fence,
+        into blocks: inout [MarkdownBlock]
+    ) -> Int {
+        let language = opening.language
         var code: [String] = []
         var index = start + 1
         while index < lines.count {
-            if lines[index].trimmingCharacters(in: .whitespaces).hasPrefix(fence) {
+            if isFenceClose(lines[index].trimmingCharacters(in: .whitespaces), for: opening) {
                 index += 1
                 break
             }
@@ -138,8 +158,27 @@ public enum MarkdownBlocks {
     /// Whether a line begins a block of its own, ending a paragraph or a list item's continuation.
     private static func startsBlock(_ line: String) -> Bool {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
-        return trimmed.hasPrefix(fence) || isRule(trimmed) || heading(trimmed) != nil
+        return fenceOpening(trimmed) != nil || isRule(trimmed) || heading(trimmed) != nil
             || quoteContent(trimmed) != nil || listItem(line) != nil
+    }
+
+    private struct Fence {
+        let length: Int
+        let language: String
+    }
+
+    /// A line of three or more backticks and an optional info string without backticks: text like
+    /// "```inline``` text" is a paragraph, not a fence.
+    private static func fenceOpening(_ trimmed: String) -> Fence? {
+        let length = trimmed.prefix { $0 == fenceCharacter }.count
+        guard length >= minFenceLength else { return nil }
+        let info = trimmed.dropFirst(length).trimmingCharacters(in: .whitespaces)
+        return info.contains(fenceCharacter) ? nil : Fence(length: length, language: info)
+    }
+
+    /// Only backticks, at least as many as the opening.
+    private static func isFenceClose(_ trimmed: String, for opening: Fence) -> Bool {
+        trimmed.count >= opening.length && trimmed.allSatisfy { $0 == fenceCharacter }
     }
 
     private static func heading(_ trimmed: String) -> MarkdownBlock? {

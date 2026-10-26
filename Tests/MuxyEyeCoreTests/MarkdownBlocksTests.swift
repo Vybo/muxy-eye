@@ -125,6 +125,46 @@ import Testing
         #expect(MarkdownBlocks.parse("a\n\n---\n\nb") == [.paragraph("a"), .rule, .paragraph("b")])
     }
 
+    @Test func aFenceWithALanguageInsideCodeDoesNotCloseIt() {
+        let text = "```\nbefore\n```swift\nafter\n```\ntail"
+        #expect(MarkdownBlocks.parse(text) == [
+            .codeBlock(language: nil, code: "before\n```swift\nafter"),
+            .paragraph("tail")
+        ])
+    }
+
+    @Test func aShorterFenceDoesNotCloseALongerOne() {
+        let text = "````\n```\nx\n````"
+        #expect(MarkdownBlocks.parse(text) == [.codeBlock(language: nil, code: "```\nx")])
+    }
+
+    @Test func aLongerClosingFenceCloses() {
+        #expect(MarkdownBlocks.parse("```\nx\n`````") == [.codeBlock(language: nil, code: "x")])
+    }
+
+    @Test func inlineTripleBackticksDoNotOpenACodeBlock() {
+        #expect(MarkdownBlocks.parse("```inline``` text") == [.paragraph("```inline``` text")])
+        #expect(MarkdownBlocks.parse("a\n```b``` c\nd") == [.paragraph("a\n```b``` c\nd")])
+    }
+
+    @Test func hugeTextIsCutWithAnEllipsis() {
+        let line = String(repeating: "x", count: 99)
+        let text = Array(repeating: line, count: 1000).joined(separator: "\n")
+        let blocks = MarkdownBlocks.parse(text, maxCharacters: 1000)
+        #expect(blocks.count == 2)
+        #expect(blocks.last == .paragraph("…"))
+        guard case .paragraph(let kept)? = blocks.first else {
+            Issue.record("no paragraph")
+            return
+        }
+        #expect(kept.count <= 1000)
+        #expect(kept.hasSuffix(line))
+    }
+
+    @Test func textWithinTheLimitIsNotCut() {
+        #expect(MarkdownBlocks.parse("abc", maxCharacters: 3) == [.paragraph("abc")])
+    }
+
     @Test func aMixedMessage() {
         let text = """
         ## Done
