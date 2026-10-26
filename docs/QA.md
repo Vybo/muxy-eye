@@ -110,10 +110,12 @@ Settings → **Panel opens**. Check each side with the eye moved to the middle o
   - [ ] the content isn't cut off, and nothing sits under the notch or the menu bar;
   - [ ] when the content grows (a longer prompt), the panel stays on the side it opened on.
 - [ ] **No room on that side:** with the eye near the bottom edge and "below", the panel opens above; near the top and "above", below; near the left edge and "left", to the right; near the right edge and "right", to the left.
-- [ ] **No room on either side** (eye half way down, a tall prompt, "below" or "above"): the panel opens on the chosen side, moved up or down just enough to stay on the screen.
+- [ ] **No room on either side for the whole panel** (eye half way down the 14" display, a tall prompt, "below" or "above"): the panel opens on the side with more room, beside the eye, only as tall as that room; its content scrolls, and the eye stays visible.
+- [ ] **No room even for a short panel** (only on a very small screen or window area): the panel opens on the chosen side, moved over the eye just enough to stay on the screen.
 - [ ] **Always on the screen:** in every case the panel is fully inside the screen and clear of the Dock; unless it hangs from the top of the screen (below an eye in the menu bar), it is clear of the menu bar and the notch too.
 - [ ] **Eye in the menu bar** (resize it at the default spot, or drag it to the top), also a large one reaching below the menu bar:
   - [ ] with "below" or "above", the panel hangs from the top of the screen as before, centred on the eye (kept on the screen at its edges), square on top, content below the notch on a notch display, covering the eye;
+  - [ ] when that panel closes, the eye's line and count are back while its shape pulls back into the eye: there is no moment with only black shapes, also over a dark window;
   - [ ] with "left" or "right", the panel opens under the menu bar beside the eye; an eye fully in the menu bar stays visible above it, keeps animating, and a click on it closes the panel.
 - [ ] **Clicks beside the open panel:** with the panel open beside the eye (a moved eye mid-screen with any side, an eye in the menu bar with "left" or "right", or an eye over the Dock):
   - [ ] clicks in the empty space between the eye and the panel, and next to them, reach the menu bar, the Dock or the app below, and close the panel;
