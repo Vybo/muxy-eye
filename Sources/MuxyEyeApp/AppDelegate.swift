@@ -74,8 +74,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     /// The app is an agent without a Dock icon, so a window only gets focus when it is brought forward explicitly.
+    /// macOS can decline the activation while another app is in front (from the eye's menu, for example), and
+    /// the window would then open behind that app's windows; ordering it front regardless keeps it on top.
     private func bringFront(_ window: NSWindow?) {
         NSApp.activate()
         window?.makeKeyAndOrderFront(nil)
+        window?.orderFrontRegardless()
     }
 }
