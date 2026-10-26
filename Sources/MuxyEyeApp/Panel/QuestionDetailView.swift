@@ -35,6 +35,7 @@ struct QuestionDetailView: View {
             ZStack(alignment: .topLeading) {
                 if let shown {
                     InlineMarkdown.text(shown.question, fontSize: 13)
+                        .openingOnlyWebLinks()
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(PanelTheme.text)
                         .fixedSize(horizontal: false, vertical: true)

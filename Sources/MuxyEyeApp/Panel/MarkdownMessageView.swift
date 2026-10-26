@@ -1,3 +1,4 @@
+import Foundation
 import MuxyEyeCore
 import SwiftUI
 
@@ -7,10 +8,14 @@ struct MarkdownMessageView: View {
     private static let listIndent: CGFloat = 14
     private static let markerWidth: CGFloat = 16
 
-    let blocks: [MarkdownBlock]
+    /// A message beyond this is cut with an ellipsis: it is scrollable, but needn't render unbounded.
+    private static let maxCharacters = 20_000
 
+    private let blocks: [MarkdownBlock]
+
+    @MainActor
     init(_ text: String) {
-        blocks = MarkdownBlocks.parse(text)
+        blocks = BlockCache.blocks(for: text, maxCharacters: Self.maxCharacters)
     }
 
     var body: some View {
@@ -21,6 +26,7 @@ struct MarkdownMessageView: View {
         }
         .foregroundStyle(PanelTheme.text)
         .textSelection(.enabled)
+        .openingOnlyWebLinks()
         .fixedSize(horizontal: false, vertical: true)
     }
 
@@ -79,5 +85,28 @@ struct MarkdownMessageView: View {
         case .bullet: "•"
         case .number(let number): "\(number)."
         }
+    }
+}
+
+/// Parses a message once: the panel re-evaluates its views far more often than a message changes.
+@MainActor
+private enum BlockCache {
+    private final class Box {
+        let blocks: [MarkdownBlock]
+        init(_ blocks: [MarkdownBlock]) { self.blocks = blocks }
+    }
+
+    private static let cache: NSCache<NSString, Box> = {
+        let cache = NSCache<NSString, Box>()
+        cache.countLimit = 32
+        return cache
+    }()
+
+    static func blocks(for text: String, maxCharacters: Int) -> [MarkdownBlock] {
+        let key = text as NSString
+        if let cached = cache.object(forKey: key) { return cached.blocks }
+        let blocks = MarkdownBlocks.parse(text, maxCharacters: maxCharacters)
+        cache.setObject(Box(blocks), forKey: key)
+        return blocks
     }
 }
