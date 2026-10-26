@@ -22,6 +22,11 @@ struct SettingsView: View {
                         }
                     }
                 }
+                Picker("Panel opens", selection: $settings.panelSide) {
+                    ForEach(PanelSide.allCases, id: \.self) { side in
+                        Text(side.title).tag(side)
+                    }
+                }
                 LaunchAtLoginToggle(launchAtLogin: launchAtLogin)
             }
             Section("Claude hooks") {
@@ -52,6 +57,18 @@ struct SettingsView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
             screens = NSScreen.screens
+        }
+    }
+}
+
+extension PanelSide {
+    /// The panel side as Settings names it.
+    var title: String {
+        switch self {
+        case .below: "Below the eye"
+        case .above: "Above the eye"
+        case .left: "Left of the eye"
+        case .right: "Right of the eye"
         }
     }
 }

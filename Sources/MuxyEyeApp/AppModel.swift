@@ -112,6 +112,11 @@ final class AppModel {
         presenter?.hide(for: duration)
     }
 
+    /// Puts the eye back at the top centre at its usual size.
+    func resetEyePlacement() {
+        settings.eyePlacement = .standard
+    }
+
     // MARK: Claude hooks
 
     var claudeSettingsURL: URL {
