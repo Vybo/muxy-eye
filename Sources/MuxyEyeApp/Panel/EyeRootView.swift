@@ -15,7 +15,7 @@ struct EyeRootView: View {
         ZStack(alignment: .topLeading) {
             CollapsedEyeShape(model: model, stage: stage)
             PanelBackground(model: model, stage: stage)
-            if phase.showsEye {
+            if phase.showsEye || !stage.eyeCovered {
                 CollapsedEyeGlyphs(model: model, stage: stage)
             }
             PanelContent(model: model, stage: stage, onExpandedHeight: onExpandedHeight)

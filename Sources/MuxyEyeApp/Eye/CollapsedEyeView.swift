@@ -2,7 +2,9 @@ import MuxyEyeCore
 import SwiftUI
 
 /// The collapsed eye's black shape: a circle, or the widened notch. A click on it expands the panel.
-/// Only the visible shapes take clicks; the transparent rest of the stage does not.
+/// Only the visible shapes take clicks; the transparent rest of the stage does not. At rest the
+/// window takes the eye's presses itself, to tell a click from a drag (see `EyePanel`); the tap here
+/// catches the clicks while the panel pulls back into the eye.
 struct CollapsedEyeShape: View {
     let model: AppModel
     let stage: EyeStage
@@ -30,7 +32,7 @@ struct CollapsedEyeGlyphs: View {
         let layout = stage.collapsed
         let state = model.state
         let motion = PanelMotion(reduceMotion: reduceMotion)
-        let visible = appeared && !stage.phase.isExpanding
+        let visible = appeared && !(stage.phase.isExpanding && stage.eyeCovered)
         ZStack(alignment: .topLeading) {
             SignalLineEyeView(mode: state.mode)
                 .allowsHitTesting(false)
@@ -38,7 +40,7 @@ struct CollapsedEyeGlyphs: View {
 
             if let countFrame = layout.countFrame {
                 let rect = stage.local(layout.onScreen(countFrame))
-                CountBadge(count: state.waitingCount, pop: motion.countPop)
+                CountBadge(count: state.waitingCount, scale: rect.height / EyeLayout.badgeSize.height, pop: motion.countPop)
                     .onTapGesture { model.expand(focus: true) }
                     .contextMenu { EyeMenu(model: model) }
                     .place(in: rect)
@@ -61,14 +63,16 @@ struct CollapsedEyeGlyphs: View {
 }
 
 /// The waiting count: orange on a black capsule, which on a notch display sits on the right wing.
-/// It pops briefly when the count changes.
+/// It grows and shrinks with a resized eye, and pops briefly when the count changes.
 private struct CountBadge: View {
     let count: Int
+    /// The badge's size as a multiple of its usual one.
+    let scale: CGFloat
     let pop: Pop?
 
     var body: some View {
         let badge = Text("\(count)")
-            .font(.system(size: 11, weight: .semibold))
+            .font(.system(size: 11 * scale, weight: .semibold))
             .monospacedDigit()
             .foregroundStyle(PanelTheme.waiting)
             .lineLimit(1)

@@ -8,10 +8,20 @@ import SwiftUI
 /// or the expanded panel, so clicks around them pass through. While the eye morphs into the panel or
 /// back, the window first grows to cover both, the shape animates inside it, and only once the
 /// animation is done does the window shrink to what's left.
+///
+/// The collapsed eye can be dragged somewhere else and resized by scrolling over it; the panel then
+/// opens on the side of the eye chosen in Settings.
 @MainActor
 final class EyeWindowController: EyePresenting {
     /// Used until the expanded panel has measured its content.
     private static let initialExpandedHeight: CGFloat = 220
+
+    /// What the stage is laid out for: the screen, the eye's place and size, and the panel's side.
+    private struct Arrangement: Equatable {
+        var geometry: ScreenGeometry
+        var placement: EyePlacement
+        var side: PanelSide
+    }
 
     private let model: AppModel
     private let settings: AppSettings
@@ -23,7 +33,17 @@ final class EyeWindowController: EyePresenting {
     private var observers: [NSObjectProtocol] = []
     private var hiddenTask: Task<Void, Never>?
 
+    /// The screen the stage is on.
     private var geometry: ScreenGeometry?
+    /// What the stage is laid out for; nil while a dragged eye has moved it without laying it out again.
+    private var arrangement: Arrangement?
+    /// The side the panel opens on. It is chosen while the eye rests and kept until the panel has
+    /// closed, so the panel doesn't jump to the other side when its content grows.
+    private var openSide = PanelSide.below
+    /// A left press on the collapsed eye: a click until the pointer moves, then a drag.
+    private var press: EyeDrag?
+    /// Where a dragged eye is now; it is saved once the eye is dropped.
+    private var draggedPlacement: EyePlacement?
     /// The waiting count the eye shows, to notice when its badge pops.
     private var waitingCount = 0
     /// Room around the panel's shape for its spring's overshoot while it opens or closes, on the
@@ -47,6 +67,8 @@ final class EyeWindowController: EyePresenting {
         }
         // While the window is larger than the panel, a click beside it lands here, not in another app.
         panel.onClickOutside = { [weak self] in self?.model.collapse() }
+        panel.onEyePointer = { [weak self] pointer in self?.eyePointer(pointer) }
+        panel.onEyeScroll = { [weak self] event in self?.eyeScrolled(event) }
     }
 
     func show() {
@@ -75,6 +97,7 @@ final class EyeWindowController: EyePresenting {
     // MARK: EyePresenting
 
     func present(expanded: Bool, focus: Bool) {
+        if expanded { endPress() }
         let wasKey = panel.isKeyWindow
         panel.isExpanded = expanded
         updateFrame()
@@ -96,19 +119,35 @@ final class EyeWindowController: EyePresenting {
     // MARK: Layout
 
     /// Moves the stage to the model's state: opens or closes the panel, follows the waiting count and
-    /// the content's height. Everything jumps instead of animating while the panel isn't on screen
-    /// or when it moves to another screen.
+    /// the content's height. Everything jumps instead of animating while the panel isn't on screen,
+    /// when it moves to another screen, and when the eye is moved or resized or the panel's side changes.
     private func updateFrame() {
         guard let screen = targetScreen() else { return }
         let geometry = ScreenGeometry(screen)
-        let collapsed = EyeLayout.collapsed(on: geometry, waitingCount: model.state.waitingCount)
-        let topInset = geometry.hasNotch ? geometry.safeAreaTop : 0
-        let expanded = EyeLayout.expandedFrame(on: geometry, contentHeight: max(expandedHeight, topInset))
+        let placement = draggedPlacement ?? settings.eyePlacement
+        let arrangement = Arrangement(geometry: geometry, placement: placement, side: settings.panelSide)
+        let collapsed = EyeLayout.collapsed(on: geometry, waitingCount: model.state.waitingCount, placement: placement)
+        if stage.phase == .collapsed || arrangement != self.arrangement {
+            openSide = EyeLayout.openingSide(
+                arrangement.side,
+                on: geometry,
+                collapsed: collapsed,
+                placement: placement,
+                contentHeight: expandedHeight)
+        }
+        let topInset = EyeLayout.topInset(on: geometry, placement: placement, side: openSide)
+        let expanded = EyeLayout.expandedFrame(
+            on: geometry,
+            contentHeight: max(expandedHeight, topInset),
+            collapsed: collapsed,
+            placement: placement,
+            side: openSide)
         let phase = stage.phase.requesting(expanded: model.expanded)
 
-        guard geometry == self.geometry, hiddenTask == nil, panel.isVisible else {
+        guard arrangement == self.arrangement, hiddenTask == nil, panel.isVisible else {
             self.geometry = geometry
-            jump(to: phase.settled, collapsed: collapsed, expanded: expanded, topInset: topInset, on: geometry)
+            self.arrangement = arrangement
+            jump(to: phase.settled, collapsed: collapsed, expanded: expanded, topInset: topInset, for: arrangement)
             return
         }
 
@@ -120,6 +159,7 @@ final class EyeWindowController: EyePresenting {
         waitingCount = model.state.waitingCount
         stage.topInset = topInset
         stage.expandedFrame = expanded
+        stage.eyeCovered = EyeLayout.panel(expanded, covers: collapsed)
 
         var duration: Double?
         var margin: CGFloat = 0
@@ -132,7 +172,7 @@ final class EyeWindowController: EyePresenting {
         let eyeRoom = PanelMotion.eyeMargin
 
         // The eye's wing or badge grows or retracts while the eye shows; under the open panel it jumps.
-        let eyeShows = phase != .expanded
+        let eyeShows = phase != .expanded || !stage.eyeCovered
         if collapsedChanged {
             stage.collapsedMotion = eyeShows ? motion.collapsedChange?.animation : nil
             stage.collapsed = collapsed
@@ -152,7 +192,7 @@ final class EyeWindowController: EyePresenting {
                 stage.reopening = previous == .closing
                 stage.panelOpacityMotion = motion.panelFade?.animation
                 stage.panelOpacity = 1
-                setPanelOutline(EyeLayout.expandedOutline(expanded), motion: motion.shapeOpen)
+                setPanelOutline(EyeLayout.expandedOutline(expanded, on: geometry), motion: motion.shapeOpen)
                 extend(motion.openDuration, room: motion.shapeOpen == nil ? 0 : shapeMargin)
             } else {
                 if let fade = motion.panelFade {
@@ -165,7 +205,7 @@ final class EyeWindowController: EyePresenting {
         } else if expandedChanged, phase.isExpanding {
             // The content measured a new height: follow it, smoothly while still opening.
             let open = phase == .opening ? motion.shapeOpen : nil
-            setPanelOutline(EyeLayout.expandedOutline(expanded), motion: open)
+            setPanelOutline(EyeLayout.expandedOutline(expanded, on: geometry), motion: open)
             extend(open?.totalTime, room: shapeMargin)
         } else if collapsedChanged, phase == .collapsed {
             // The hidden panel shape stays on the eye's, ready for the next opening.
@@ -193,25 +233,27 @@ final class EyeWindowController: EyePresenting {
         collapsed: CollapsedLayout,
         expanded: CGRect,
         topInset: CGFloat,
-        on geometry: ScreenGeometry
+        for arrangement: Arrangement
     ) {
+        let geometry = arrangement.geometry
         settleTask?.cancel()
         settleTask = nil
         pullBackTask?.cancel()
         pullBackTask = nil
-        shapeMargin = EyeLayout.motionMargin(on: geometry)
+        shapeMargin = EyeLayout.motionMargin(on: geometry, placement: arrangement.placement, side: arrangement.side)
         waitingCount = model.state.waitingCount
         stage.collapsedMotion = nil
         stage.panelMotion = nil
         stage.panelOpacityMotion = nil
-        stage.frame = EyeLayout.stageFrame(on: geometry)
+        stage.frame = EyeLayout.stageFrame(on: geometry, placement: arrangement.placement, side: arrangement.side)
         stage.phase = phase
         stage.reopening = false
         stage.collapsed = collapsed
         stage.expandedFrame = expanded
         stage.topInset = topInset
+        stage.eyeCovered = EyeLayout.panel(expanded, covers: collapsed)
         stage.panelOutline = phase == .expanded
-            ? EyeLayout.expandedOutline(expanded)
+            ? EyeLayout.expandedOutline(expanded, on: geometry)
             : EyeLayout.collapsedOutline(collapsed)
         panel.panelOutline = stage.panelOutline
         stage.panelOpacity = phase == .expanded ? 1 : 0
@@ -278,6 +320,8 @@ final class EyeWindowController: EyePresenting {
     /// Sizes the window and puts the stage where the window shows its visible part. Screen updates
     /// wait for both, so the shapes don't jump for a frame while the window moves under them.
     private func applyWindowFrame() {
+        // Only the eye at rest collapsed can be grabbed; under or within the panel it is the panel's.
+        panel.eyeHandles = stage.phase == .collapsed ? EyeLayout.grabOutlines(stage.collapsed) : []
         let stageFrame = stage.frame
         let frame = window.frame(within: stageFrame)
         let placement = CGRect(
@@ -319,6 +363,91 @@ final class EyeWindowController: EyePresenting {
         )
     }
 
+    // MARK: Moving and resizing
+
+    /// A press on the collapsed eye opens the panel when it comes up without having moved, and drags
+    /// the eye once it moves; a dragged eye stays where it is dropped and the panel stays closed.
+    private func eyePointer(_ pointer: EyePointer) {
+        switch pointer {
+        case .down(let point):
+            guard stage.phase == .collapsed, !model.expanded else { return }
+            press = EyeDrag(start: point, eyeCenter: EyeLayout.eyeCenter(of: stage.collapsed))
+        case .dragged(let point):
+            guard var press, let center = press.move(to: point) else { return }
+            self.press = press
+            moveEye(to: center)
+        case .up(let point):
+            guard let press else { return }
+            self.press = nil
+            switch press.release(at: point) {
+            case .click:
+                model.expand(focus: true)
+            case .drop(let center):
+                moveEye(to: center)
+                dropEye()
+            }
+        }
+    }
+
+    /// Puts the eye's centre at `center` while it is dragged. When only its place changes, the stage
+    /// and the window move with it, so nothing is drawn again; the stage is laid out anew once the
+    /// eye is dropped.
+    private func moveEye(to center: CGPoint) {
+        guard let geometry else { return }
+        let scale = (draggedPlacement ?? settings.eyePlacement).scale
+        let placement = EyePlacement(position: EyeLayout.position(of: center, on: geometry), scale: scale)
+        draggedPlacement = placement
+        let collapsed = EyeLayout.collapsed(on: geometry, waitingCount: model.state.waitingCount, placement: placement)
+        guard stage.phase == .collapsed, !window.isMoving, collapsed.isSameShape(as: stage.collapsed) else {
+            // Its shape changes (the notch's wings become a circle, the count changes sides): lay it out.
+            updateFrame()
+            return
+        }
+        let dx = collapsed.panelFrame.minX - stage.collapsed.panelFrame.minX
+        let dy = collapsed.panelFrame.minY - stage.collapsed.panelFrame.minY
+        arrangement = nil
+        stage.collapsedMotion = nil
+        stage.frame = stage.frame.offsetBy(dx: dx, dy: dy)
+        stage.expandedFrame = stage.expandedFrame.offsetBy(dx: dx, dy: dy)
+        stage.collapsed = collapsed
+        setPanelOutline(EyeLayout.collapsedOutline(collapsed), motion: nil)
+        window = EyeWindowFrame(footprint: collapsed.panelFrame)
+        applyWindowFrame()
+    }
+
+    /// Saves where the dragged eye ended up, kept on the screen and out of the notch, rather than
+    /// where the pointer let go of it.
+    private func dropEye() {
+        guard let placement = draggedPlacement else { return }
+        draggedPlacement = nil
+        if let geometry {
+            let dropped = EyeLayout.eyeCenter(of: EyeLayout.collapsed(on: geometry, waitingCount: 0, placement: placement))
+            settings.eyePlacement = EyePlacement(position: EyeLayout.position(of: dropped, on: geometry), scale: placement.scale)
+        }
+        updateFrame()
+    }
+
+    /// The panel opens while the eye is pressed, on its own: the press ends there, and a dragged eye
+    /// stays where it got to.
+    private func endPress() {
+        press = nil
+        if draggedPlacement != nil { dropEye() }
+    }
+
+    /// Scrolling over the collapsed eye resizes it around its centre. Only the fingers' own movement
+    /// counts; momentum after they lift would keep resizing it.
+    private func eyeScrolled(_ event: NSEvent) {
+        guard press == nil, stage.phase == .collapsed, !model.expanded, event.momentumPhase.isEmpty else { return }
+        let current = settings.eyePlacement
+        let resized = current.resized(
+            byScroll: event.scrollingDeltaY,
+            precise: event.hasPreciseScrollingDeltas,
+            inverted: event.isDirectionInvertedFromDevice)
+        guard resized != current else { return }
+        settings.eyePlacement = resized
+        updateFrame()
+    }
+
     // MARK: Observation
 
     private func observeModel() {
@@ -326,6 +455,8 @@ final class EyeWindowController: EyePresenting {
             _ = model.expanded
             _ = model.state.waitingCount
             _ = settings.pinnedDisplayID
+            _ = settings.eyePlacement
+            _ = settings.panelSide
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
                 self?.updateFrame()

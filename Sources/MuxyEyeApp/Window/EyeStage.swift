@@ -8,7 +8,7 @@ import SwiftUI
 /// the view animates depends on the window's frame.
 @MainActor @Observable
 final class EyeStage {
-    /// The stage on screen; its top is the top of the screen.
+    /// The stage on screen, within the screen. At the eye's default spot its top is the top of the screen.
     var frame: CGRect = .zero
     var phase: PanelPhase = .collapsed
     /// The panel is opening again before it finished closing: its content comes straight back
@@ -22,6 +22,9 @@ final class EyeStage {
     var expandedFrame: CGRect = .zero
     /// Room left at the top of the panel for the physical notch.
     var topInset: CGFloat = 0
+    /// The expanded panel covers the eye, whose signal line and count then fade into it. An eye
+    /// beside the panel, in the menu bar above it for one, keeps showing.
+    var eyeCovered = true
 
     /// The panel's black shape: on the eye at rest collapsed, the panel's frame when expanded.
     var panelOutline = EyeOutline(frame: .zero, topRadius: 0, bottomRadius: 0)

@@ -52,7 +52,7 @@ public struct EyeWindowFrame: Sendable, Equatable {
     }
 
     /// The window frame: the footprint at rest; while moving, everything moved across plus the
-    /// margin on each side, kept within `bounds` (whose top is the top of the screen).
+    /// margin on each side, kept within `bounds` (the stage, which stays on the screen).
     public func frame(within bounds: CGRect) -> CGRect {
         guard let span else { return footprint }
         let grown = span.insetBy(dx: -margin, dy: -margin).intersection(bounds)
