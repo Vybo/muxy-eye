@@ -235,9 +235,11 @@ import Testing
         }
     }
 
-    @Test func theWindowShowsAnUncoveredEyeInEveryPhase() {
+    @Test func theWindowShowsTheEyeInEveryPhaseCoveredOrNot() {
         let placements = [middle, quarter, EyePlacement(position: CGPoint(x: 0.7, y: 0.3), scale: 2.5), EyePlacement(scale: 0.8)]
         var hidden: [String] = []
+        var uncovered = 0
+        var covered = 0
         for screen in screens {
             for placement in placements {
                 for count in [0, 2] {
@@ -248,7 +250,8 @@ import Testing
                             wanted, on: screen, collapsed: collapsed, placement: placement, contentHeight: 300)
                         let expanded = EyeLayout.expandedFrame(
                             on: screen, contentHeight: 300, collapsed: collapsed, placement: placement, side: side)
-                        guard !EyeLayout.panel(expanded, covers: collapsed) else { continue }
+                        // A covered eye shows through the panel's shape; the window must hold it all the same.
+                        if EyeLayout.panel(expanded, covers: collapsed) { covered += 1 } else { uncovered += 1 }
                         let stage = EyeLayout.stageFrame(on: screen, placement: placement, side: wanted)
                         let margin = EyeLayout.motionMargin(on: screen, placement: placement, side: wanted)
                         // The window through a whole open-and-close cycle, as the window controller drives it.
@@ -274,6 +277,9 @@ import Testing
                 }
             }
         }
+        // Both paths were checked: beside the panel, and under the panel hanging from the top.
+        #expect(uncovered > 0)
+        #expect(covered > 0)
         #expect(hidden.isEmpty)
     }
 
@@ -296,17 +302,91 @@ import Testing
         #expect(side(.right, at: CGPoint(x: 0.95, y: 0.5)) == .left)
     }
 
-    @Test func withRoomOnNeitherSideThePanelStaysOnTheChosenSideAndOnScreen() {
+    @Test func withoutRoomForTheWholePanelItTakesTheRoomierSideAndFitsItsHeight() {
+        // 701.5 pt below the eye, 676.5 pt above it: an 800 pt panel fits on neither side.
         let collapsed = EyeLayout.collapsed(on: ultrawide, waitingCount: 0, placement: middle)
         for wanted in [PanelSide.below, .above] {
             let side = EyeLayout.openingSide(wanted, on: ultrawide, collapsed: collapsed, placement: middle, contentHeight: 800)
-            #expect(side == wanted)
+            #expect(side == .below)
         }
-        func frame(_ side: PanelSide) -> CGRect {
-            EyeLayout.expandedFrame(on: ultrawide, contentHeight: 800, collapsed: collapsed, placement: middle, side: side)
+        let frame = EyeLayout.expandedFrame(
+            on: ultrawide, contentHeight: 800, collapsed: collapsed, placement: middle, side: .below)
+        #expect(frame == CGRect(x: 1400, y: 0, width: 640, height: 701.5))
+        #expect(EyeLayout.panel(frame, covers: collapsed) == false)
+    }
+
+    @Test func aTallPanelBesideAFloatingEyeOnTheNotchDisplayFitsTheRoom() {
+        // Mid-screen on the 14" display: 471 pt below the eye, 439 pt above it, for a 550 pt prompt.
+        let collapsed = EyeLayout.collapsed(on: mbp14, waitingCount: 1, placement: middle)
+        for wanted in [PanelSide.below, .above] {
+            let side = EyeLayout.openingSide(wanted, on: mbp14, collapsed: collapsed, placement: middle, contentHeight: 550)
+            #expect(side == .below)
         }
-        #expect(frame(.below) == CGRect(x: 1400, y: 0, width: 640, height: 800))
-        #expect(frame(.above) == CGRect(x: 1400, y: 615, width: 640, height: 800))
+        let frame = EyeLayout.expandedFrame(on: mbp14, contentHeight: 550, collapsed: collapsed, placement: middle, side: .below)
+        #expect(frame == CGRect(x: 436, y: 0, width: 640, height: 471))
+        #expect(EyeLayout.panel(frame, covers: collapsed) == false)
+        // A short prompt still opens on the chosen side at its own height.
+        let above = EyeLayout.expandedFrame(on: mbp14, contentHeight: 200, collapsed: collapsed, placement: middle, side: .above)
+        #expect(EyeLayout.openingSide(.above, on: mbp14, collapsed: collapsed, placement: middle, contentHeight: 200) == .above)
+        #expect(above.height == 200)
+    }
+
+    @Test func onlyWithoutRoomForTheSmallestPanelOnEitherSideDoesItCoverTheEye() {
+        // 144 pt below the eye and 114 pt above it, less than the 160 pt a panel needs.
+        let tiny = ScreenGeometry(
+            frame: CGRect(x: 0, y: 0, width: 800, height: 330),
+            visibleFrame: CGRect(x: 0, y: 0, width: 800, height: 300),
+            safeAreaTop: 0, auxiliaryTopLeftWidth: nil, auxiliaryTopRightWidth: nil)
+        let collapsed = EyeLayout.collapsed(on: tiny, waitingCount: 0, placement: middle)
+        #expect(EyeLayout.openingSide(.below, on: tiny, collapsed: collapsed, placement: middle, contentHeight: 400) == .below)
+        let frame = EyeLayout.expandedFrame(on: tiny, contentHeight: 400, collapsed: collapsed, placement: middle, side: .below)
+        #expect(frame == CGRect(x: 80, y: 0, width: 640, height: 180))
+        #expect(EyeLayout.panel(frame, covers: collapsed))
+        // A prompt short enough for the room still opens beside the eye.
+        let short = EyeLayout.expandedFrame(on: tiny, contentHeight: 120, collapsed: collapsed, placement: middle, side: .below)
+        #expect(EyeLayout.panel(short, covers: collapsed) == false)
+    }
+
+    @Test func aFloatingEyeIsNeverCoveredWhereThereIsRoom() {
+        let fractions: [CGFloat] = [0, 0.05, 0.3, 0.5, 0.7, 0.95, 1]
+        var covered: [String] = []
+        var checked = 0
+        for screen in screens {
+            for x in fractions {
+                for y in fractions {
+                    for scale in [0.5, 1, 3] as [CGFloat] {
+                        let placement = EyePlacement(position: CGPoint(x: x, y: y), scale: scale)
+                        let collapsed = EyeLayout.collapsed(on: screen, waitingCount: 2, placement: placement)
+                        for wanted in PanelSide.allCases {
+                            for height in [150, 400, 550, 5000] as [CGFloat] {
+                                let side = EyeLayout.openingSide(
+                                    wanted, on: screen, collapsed: collapsed, placement: placement, contentHeight: height)
+                                if EyeLayout.hangsFromTop(on: screen, collapsed: collapsed, placement: placement, side: side) {
+                                    continue
+                                }
+                                checked += 1
+                                let frame = EyeLayout.expandedFrame(
+                                    on: screen, contentHeight: height, collapsed: collapsed, placement: placement, side: side)
+                                if EyeLayout.panel(frame, covers: collapsed) || frame.height < min(height, 160) {
+                                    covered.append("\(placement) \(wanted) \(height) \(frame)")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        #expect(checked > 0)
+        #expect(covered.isEmpty)
+    }
+
+    @Test func aPanelOverTheCountCoversTheEye() throws {
+        let layout = EyeLayout.collapsed(on: ultrawide, waitingCount: 2, placement: quarter)
+        let count = layout.onScreen(try #require(layout.countFrame))
+        let overCount = CGRect(x: count.midX, y: count.minY - 100, width: 300, height: 200)
+        #expect(overCount.intersects(layout.onScreen(layout.eyeFrame)) == false)
+        #expect(EyeLayout.panel(overCount, covers: layout))
+        #expect(EyeLayout.panel(CGRect(x: 0, y: 0, width: 100, height: 100), covers: layout) == false)
     }
 
     @Test func thePanelIsAlwaysFullyInTheVisibleFrame() {

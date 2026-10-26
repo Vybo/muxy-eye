@@ -81,8 +81,10 @@ extension EyeLayout {
 
     // MARK: Panel
 
-    /// The side the panel opens on: `side` when the panel has room there, else the opposite side if
-    /// that has room, else `side` anyway, where the panel is then kept on screen.
+    /// The side the panel opens on: `side` when the whole panel has room there, else the opposite
+    /// side if it has. Below or above, where neither takes the whole panel, the roomier side, with
+    /// the panel cut to its room, as long as that leaves at least `minimumPanelHeight`. Else `side`
+    /// anyway, where the panel is kept on screen and covers the eye.
     public static func openingSide(
         _ side: PanelSide,
         on screen: ScreenGeometry,
@@ -90,12 +92,23 @@ extension EyeLayout {
         placement: EyePlacement,
         contentHeight: CGFloat
     ) -> PanelSide {
-        func fits(_ side: PanelSide) -> Bool {
-            hasRoom(on: side, screen, collapsed: collapsed, placement: placement, contentHeight: contentHeight)
+        let size = panelSize(on: screen, contentHeight: contentHeight)
+        func room(_ side: PanelSide) -> CGFloat {
+            roomBeside(side, on: screen, collapsed: collapsed, placement: placement)
         }
-        if fits(side) { return side }
-        return fits(side.opposite) ? side.opposite : side
+        func fits(_ side: PanelSide, cut: Bool) -> Bool {
+            if hangsFromTop(on: screen, collapsed: collapsed, placement: placement, side: side) { return true }
+            return room(side) >= neededLength(beside: side, size: size, cut: cut)
+        }
+        if fits(side, cut: false) { return side }
+        if fits(side.opposite, cut: false) { return side.opposite }
+        let roomier = room(side) >= room(side.opposite) ? side : side.opposite
+        return fits(roomier, cut: true) ? roomier : side
     }
+
+    /// The least height a panel below or above a moved eye is cut to, to stay beside the eye. Its
+    /// content scrolls when cut.
+    public static let minimumPanelHeight: CGFloat = 160
 
     /// The panel on `side` of the eye. It opens beside the eye, `panelGap` from it and from the room
     /// its count takes, centred on the eye, so the eye stays in sight while the panel is open; the
@@ -119,7 +132,13 @@ extension EyeLayout {
             let x = max(bounds.minX, min(eye.midX - hanging.width / 2, bounds.maxX - hanging.width))
             return CGRect(x: x, y: hanging.minY, width: hanging.width, height: hanging.height)
         }
-        let size = panelSize(on: screen, contentHeight: contentHeight)
+        var size = panelSize(on: screen, contentHeight: contentHeight)
+        let available = roomBeside(side, on: screen, collapsed: collapsed, placement: placement)
+        if side == .below || side == .above, available >= neededLength(beside: side, size: size, cut: true) {
+            // As tall as the room beside the eye allows; with less room than the smallest panel, it
+            // keeps its height and is moved over the eye, on screen.
+            size.height = min(size.height, available)
+        }
         let room = roomAroundEye(on: screen, collapsed: collapsed, placement: placement)
         let origin = switch side {
         case .below: CGPoint(x: eye.midX - size.width / 2, y: room.minY - panelGap - size.height)
@@ -174,10 +193,11 @@ extension EyeLayout {
         return EyeOutline(frame: frame, topRadius: hangs ? 0 : panelCornerRadius, bottomRadius: panelCornerRadius)
     }
 
-    /// Whether the panel at `frame` covers the layout's eye, which then fades into it. An eye beside
-    /// the panel, in the menu bar above it for one, stays as it is.
+    /// Whether the panel at `frame` covers the layout's eye or its count, which then fade into it. An
+    /// eye beside the panel stays as it is.
     public static func panel(_ frame: CGRect, covers layout: CollapsedLayout) -> Bool {
-        overlaps(frame, layout.onScreen(layout.eyeFrame))
+        let parts = [layout.eyeFrame] + [layout.countFrame].compactMap { $0 }
+        return parts.contains { overlaps(frame, layout.onScreen($0)) }
     }
 
     // MARK: Stage
@@ -240,22 +260,30 @@ extension EyeLayout {
         return bounds
     }
 
-    private static func hasRoom(
-        on side: PanelSide,
-        _ screen: ScreenGeometry,
+    /// How far a panel beside the eye on `side` can reach: from the gap beside the eye and its count's
+    /// room to the edge of where panels may go.
+    private static func roomBeside(
+        _ side: PanelSide,
+        on screen: ScreenGeometry,
         collapsed: CollapsedLayout,
-        placement: EyePlacement,
-        contentHeight: CGFloat
-    ) -> Bool {
-        if hangsFromTop(on: screen, collapsed: collapsed, placement: placement, side: side) { return true }
+        placement: EyePlacement
+    ) -> CGFloat {
         let bounds = panelBounds(on: screen)
-        let size = panelSize(on: screen, contentHeight: contentHeight)
         let room = roomAroundEye(on: screen, collapsed: collapsed, placement: placement)
         return switch side {
-        case .below: room.minY - panelGap - size.height >= bounds.minY
-        case .above: room.maxY + panelGap + size.height <= bounds.maxY
-        case .left: room.minX - panelGap - size.width >= bounds.minX
-        case .right: room.maxX + panelGap + size.width <= bounds.maxX
+        case .below: room.minY - panelGap - bounds.minY
+        case .above: bounds.maxY - room.maxY - panelGap
+        case .left: room.minX - panelGap - bounds.minX
+        case .right: bounds.maxX - room.maxX - panelGap
+        }
+    }
+
+    /// The room a panel of `size` needs beside the eye on `side`: its whole width to the left or
+    /// right; its whole height below or above, or, `cut`, the least height it is cut to.
+    private static func neededLength(beside side: PanelSide, size: CGSize, cut: Bool) -> CGFloat {
+        switch side {
+        case .left, .right: size.width
+        case .below, .above: cut ? min(size.height, minimumPanelHeight) : size.height
         }
     }
 
