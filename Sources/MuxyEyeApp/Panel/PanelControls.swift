@@ -28,6 +28,9 @@ struct OptionButton: View {
     var flash = 0
     let action: () -> Void
 
+    /// Inline code on the orange default row needs a darker patch than on a card.
+    private var codeBackground: Color { isDefault ? Color.black.opacity(0.12) : InlineMarkdown.codeBackground }
+
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
         Button(action: action) {
@@ -37,11 +40,11 @@ struct OptionButton: View {
                     .monospacedDigit()
                     .opacity(0.7)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(verbatim: label)
+                    InlineMarkdown.text(label, fontSize: 12.5, codeBackground: codeBackground, links: false)
                         .font(.system(size: 12.5, weight: .medium))
                         .lineLimit(2)
                     if let description, !description.isEmpty {
-                        Text(verbatim: description)
+                        InlineMarkdown.text(description, fontSize: 11, codeBackground: codeBackground, links: false)
                             .font(.system(size: 11))
                             .foregroundStyle(isDefault ? Color.black.opacity(0.7) : PanelTheme.secondaryText)
                             .lineLimit(2)
@@ -79,12 +82,12 @@ struct CheckboxRow: View {
                     .font(.system(size: 13))
                     .foregroundStyle(checked ? PanelTheme.waiting : PanelTheme.secondaryText)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(verbatim: label)
+                    InlineMarkdown.text(label, fontSize: 12.5, links: false)
                         .font(.system(size: 12.5, weight: .medium))
                         .foregroundStyle(PanelTheme.text)
                         .lineLimit(2)
                     if let description, !description.isEmpty {
-                        Text(verbatim: description)
+                        InlineMarkdown.text(description, fontSize: 11, links: false)
                             .font(.system(size: 11))
                             .foregroundStyle(PanelTheme.secondaryText)
                             .lineLimit(2)
