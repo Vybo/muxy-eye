@@ -7,6 +7,8 @@ import SwiftUI
 struct ExpandedPanelView: View {
     static let railWidth: CGFloat = 150
     private static let minContentHeight: CGFloat = 150
+    /// The top of the detail column, to scroll back to when another session shows.
+    private static let detailTop = "detailTop"
 
     let model: AppModel
     /// Room left at the top for the physical notch; the background still covers it.
@@ -20,6 +22,8 @@ struct ExpandedPanelView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var railHeight: CGFloat = 0
     @State private var detailHeight: CGFloat = 0
+    /// The height the panel leaves the detail column; less than `detailHeight` when the panel is cut.
+    @State private var detailAreaHeight: CGFloat = 0
     @State private var appeared = false
     /// Answers wait until the detail column has faded in.
     @State private var answerGate = AnswerGate.open
@@ -58,22 +62,37 @@ struct ExpandedPanelView: View {
     private func content(revealed: Bool, motion: PanelMotion) -> some View {
         let state = model.state
         if let record = selectedRecord {
+            let scrolls = EyeLayout.detailScrolls(natural: detailHeight, available: detailAreaHeight)
             HStack(alignment: .top, spacing: 0) {
                 SessionRailView(model: model, revealed: revealed, reopening: reopening) { railHeight = $0 }
                     .frame(width: Self.railWidth)
                 Rectangle()
                     .fill(PanelTheme.divider)
                     .frame(width: 1)
-                // Another session's detail cross-fades in over the last one.
-                ZStack(alignment: .topLeading) {
-                    SessionDetailView(model: model, record: record, keyPress: model.keyPress)
-                        .holdsAnswers(for: motion.revealTime(.sessionSwitch))
-                        .id(record.id)
-                        .transition(motion.leavingFade)
+                // Cut shorter than the prompt (beside a moved eye, or at the tallest panel), the detail
+                // scrolls. It always sits in the scroll view, which stays still and shows no scroll bars
+                // while everything fits, so the prompt keeps its state (typed text, ticks, answer holds)
+                // when the panel's height changes around it.
+                ScrollViewReader { proxy in
+                    ScrollView(.vertical) {
+                        // Another session's detail cross-fades in over the last one.
+                        ZStack(alignment: .topLeading) {
+                            SessionDetailView(model: model, record: record, keyPress: model.keyPress)
+                                .holdsAnswers(for: motion.revealTime(.sessionSwitch))
+                                .id(record.id)
+                                .transition(motion.leavingFade)
+                        }
+                        .animation(motion.detailSwap?.animation, value: record.id)
+                        .fixedSize(horizontal: false, vertical: true)
+                        // Its natural height, whatever the panel leaves it, so the panel can ask for it.
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { detailHeight = $0 }
+                        .id(Self.detailTop)
+                    }
+                    .scrollDisabled(!scrolls)
+                    .scrollIndicators(scrolls ? .automatic : .never)
+                    .scrollBounceBehavior(.basedOnSize)
+                    .onChange(of: record.id) { proxy.scrollTo(Self.detailTop, anchor: .top) }
                 }
-                .animation(motion.detailSwap?.animation, value: record.id)
-                .fixedSize(horizontal: false, vertical: true)
-                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { detailHeight = $0 }
                 .reveal(
                     revealed,
                     show: reopening ? motion.contentReturn : motion.detailIn,
@@ -81,6 +100,7 @@ struct ExpandedPanelView: View {
                     slide: motion.contentSlide
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { detailAreaHeight = $0 }
             }
         } else {
             Text(state.muxyRunning ? "No agent sessions in Muxy" : AppModel.muxyNotRunningReason)

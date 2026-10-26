@@ -111,6 +111,12 @@ Settings → **Panel opens**. Check each side with the eye moved to the middle o
   - [ ] when the content grows (a longer prompt), the panel stays on the side it opened on.
 - [ ] **No room on that side:** with the eye near the bottom edge and "below", the panel opens above; near the top and "above", below; near the left edge and "left", to the right; near the right edge and "right", to the left.
 - [ ] **No room on either side for the whole panel** (eye half way down the 14" display, a tall prompt, "below" or "above"): the panel opens on the side with more room, beside the eye, only as tall as that room; its content scrolls, and the eye stays visible.
+- [ ] **A panel cut shorter than its prompt** (as above, also a very tall prompt at the default spot):
+  - [ ] the prompt's column scrolls with the trackpad and the mouse wheel, starting at the top; the options, the reply field and Open in Muxy at the bottom can be reached and used;
+  - [ ] the digits, Return, ↑/↓ and Esc work as in a full panel, and a prompt that has just appeared still holds answers until it has faded in;
+  - [ ] typing a reply, or ticking options, keeps what you typed or ticked when a banner appears or the panel's height changes;
+  - [ ] switching sessions in the rail shows the new prompt from its top; the rail still scrolls on its own;
+  - [ ] a panel whose prompt fits shows no scroll bars and doesn't scroll.
 - [ ] **No room even for a short panel** (only on a very small screen or window area): the panel opens on the chosen side, moved over the eye just enough to stay on the screen.
 - [ ] **Always on the screen:** in every case the panel is fully inside the screen and clear of the Dock; unless it hangs from the top of the screen (below an eye in the menu bar), it is clear of the menu bar and the notch too.
 - [ ] **Eye in the menu bar** (resize it at the default spot, or drag it to the top), also a large one reaching below the menu bar:

@@ -360,3 +360,13 @@ extension EyeLayout {
         return rect
     }
 }
+
+extension EyeLayout {
+    /// Whether the panel's detail column, `natural` points tall, scrolls in the `available` height the
+    /// panel leaves it: only when the panel is cut shorter than the detail, by more than rounding.
+    /// Until both are measured (0), it doesn't.
+    public static func detailScrolls(natural: CGFloat, available: CGFloat) -> Bool {
+        guard natural > 0, available > 0 else { return false }
+        return natural > available + edgeTolerance
+    }
+}

@@ -380,6 +380,19 @@ import Testing
         #expect(covered.isEmpty)
     }
 
+    @Test func theDetailScrollsOnlyWhenThePanelIsCutShorterThanIt() {
+        // Everything fits: no scrolling, also when the heights differ by rounding.
+        #expect(EyeLayout.detailScrolls(natural: 300, available: 300) == false)
+        #expect(EyeLayout.detailScrolls(natural: 300.4, available: 300) == false)
+        #expect(EyeLayout.detailScrolls(natural: 120, available: 471) == false)
+        // Cut shorter than the detail: it scrolls.
+        #expect(EyeLayout.detailScrolls(natural: 301, available: 300))
+        #expect(EyeLayout.detailScrolls(natural: 550, available: 160))
+        // Not measured yet: no scrolling.
+        #expect(EyeLayout.detailScrolls(natural: 550, available: 0) == false)
+        #expect(EyeLayout.detailScrolls(natural: 0, available: 300) == false)
+    }
+
     @Test func aPanelOverTheCountCoversTheEye() throws {
         let layout = EyeLayout.collapsed(on: ultrawide, waitingCount: 2, placement: quarter)
         let count = layout.onScreen(try #require(layout.countFrame))
