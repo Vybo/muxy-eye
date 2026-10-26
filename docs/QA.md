@@ -48,6 +48,72 @@ These checks cover what the unit tests can't: the window, focus, displays, and t
   - [ ] `muxy server status` stays stopped, even a minute later. The eye never starts the server again.
 - [ ] **Quitting:** right-click → Quit Muxy Eye removes `~/Library/Application Support/Muxy Eye/eye.sock`.
 
+## Moving and resizing the eye
+
+Start each group from the default spot and size: use **Reset Position and Size** in the eye's menu if it is offered.
+
+- [ ] **Click or drag:**
+  - [ ] a press released without moving opens the panel, on release, and gives it the keyboard;
+  - [ ] a press that moves a little (about 2 points) and comes back still opens the panel;
+  - [ ] a press that moves more than about 4 points drags the eye: it follows the pointer live, without lag or flicker, and stays where you let go;
+  - [ ] after a drag the panel stays closed, nothing is typed into any terminal, and the keyboard stays in the app you were in;
+  - [ ] a drag that starts on the count badge moves the eye too;
+  - [ ] a drag that goes back to where it started is still a drag: the panel doesn't open;
+  - [ ] right-click and control-click on the eye still open its menu;
+  - [ ] the open panel can't be dragged, and dragging inside it (selecting text, for example) doesn't move anything;
+  - [ ] while the panel pulls back into the eye, a click on it still opens it again.
+- [ ] **Auto-expand during a drag:** with auto-expand on, start dragging the eye and make a prompt arrive. The panel opens without taking the keyboard, and the eye stays where it was dragged to.
+- [ ] **Shape:**
+  - [ ] at the default spot and size, the eye looks exactly as before: the notch's wings on a notch display, the menu-bar circle and its badge elsewhere;
+  - [ ] the first move or resize turns it into a free circle, also on a notch display (no wings);
+  - [ ] a moved eye shows no count with one session waiting, and the count beside it with two or more, on every display;
+  - [ ] at the right edge of the screen, and just left of the notch, the count sits on the eye's left instead;
+  - [ ] the eye stops at the screen's edges: it can't be dragged off the screen;
+  - [ ] drag the eye along the top of a notch display, across the notch: it never disappears behind the notch, and dropped there it sits just beside or below it.
+- [ ] **Resize:**
+  - [ ] on a trackpad, two fingers up over the eye grow it and down shrink it, smoothly, without jumps;
+  - [ ] with a mouse wheel, each step grows or shrinks it by about a tenth;
+  - [ ] the same finger or wheel direction grows it with natural scrolling on and off (System Settings → Trackpad / Mouse);
+  - [ ] lifting the fingers stops the resizing at once (momentum doesn't keep it going);
+  - [ ] it stops at about half and about three times its usual size;
+  - [ ] the count badge and its digits grow and shrink with it;
+  - [ ] scrolling over the open panel scrolls its content and doesn't resize the eye;
+  - [ ] scrolling elsewhere in the menu bar or in other apps is unaffected.
+- [ ] **Clicks around the eye:** at the largest size, clicks next to the circle (at the corners of its square) and in the gap between the eye and its count reach the menu bar or the app below, as they do next to the eye at the default size.
+- [ ] **Relaunch:** quit and start the app again. The eye is where you left it, at the same size.
+- [ ] **Several displays:**
+  - [ ] move the eye, for example to the left third of the screen, half way down; activate an app on another display. The eye is at the same relative place there, at the same size relative to that display's usual eye;
+  - [ ] with a display pinned in Settings, the moved eye stays on that display;
+  - [ ] after connecting or disconnecting a display, or changing the resolution, the moved eye is at the same relative place again;
+  - [ ] a moved eye on a notch display sits clear of the notch, also when it got there by following the active display.
+- [ ] **Reset:**
+  - [ ] at the default spot and size, the eye's menu has no Reset Position and Size, from the right-click and from the ⋯ button;
+  - [ ] after a move, and after a resize alone, both menus have it;
+  - [ ] it puts the eye back at the top centre at its usual size, with the notch's wings again on a notch display, and the item disappears;
+  - [ ] from the ⋯ button in the open panel, the panel moves back to the top centre with the eye.
+- [ ] **CPU:** with a moved and resized eye at rest, idle and waiting, Muxy Eye uses about 0% CPU, as at the default spot.
+
+## The panel's side
+
+Settings → **Panel opens**. Check each side with the eye moved to the middle of the screen, then near the screen's edges. Check on a notch display and a non-notch one.
+
+- [ ] **Each side** (below, above, left, right):
+  - [ ] the panel grows out of the eye on that side, with the same spring as before, covering the eye, and pulls back into the eye when it closes;
+  - [ ] the panel has its usual size, with all four corners rounded;
+  - [ ] the content isn't cut off, and nothing sits under the notch or the menu bar;
+  - [ ] when the content grows (a longer prompt), the panel stays on the side it opened on.
+- [ ] **No room on that side:** with the eye near the bottom edge and "below", the panel opens above; near the top and "above", below; near the left edge and "left", to the right; near the right edge and "right", to the left.
+- [ ] **No room on either side** (eye half way down, a tall prompt, "below" or "above"): the panel opens on the chosen side, moved up or down just enough to stay on the screen.
+- [ ] **Always on the screen:** in every case the panel is fully inside the screen, clear of the menu bar, the Dock and the notch.
+- [ ] **Eye in the menu bar** (resize it at the default spot, or drag it to the top): the panel opens below the menu bar; an eye fully in the menu bar stays visible above it, keeps animating, and a click on it closes the panel.
+- [ ] **Default spot:** with "below", the panel is exactly as before: flush with the top edge, square on top, content below the notch on a notch display. With "above", it opens the same way.
+- [ ] **With a moved eye, as at the default spot:**
+  - [ ] a click outside the panel closes it, and typing goes back to the app you were in;
+  - [ ] Esc, ↑/↓, the digits and Return work after clicking the eye or the panel;
+  - [ ] auto-expand opens the panel without taking the keyboard;
+  - [ ] clicking the eye again while the panel closes, or closing it while it opens, turns the animation around smoothly;
+  - [ ] with Reduce Motion on, the panel fades in and out on its side instead of growing.
+
 ## The expanded panel
 
 - [ ] Click the eye. The panel opens and gets the keyboard, but no text field is focused, so digit keys pick options.
@@ -139,7 +205,7 @@ These checks cover what the unit tests can't: the window, focus, displays, and t
   - [ ] the status says Installed.
 - [ ] **Update:** after an older install, the status says Needs update, and Update fixes it.
 - [ ] **Remove:** only entries containing `muxy-eye-hook` are removed.
-- [ ] **⋯ menu button** (top-right of the open panel) shows the same three items and works with a menu-bar tool like Barbee running.
+- [ ] **⋯ menu button** (top-right of the open panel) shows the same items as the right-click menu and works with a menu-bar tool like Barbee running.
 - [ ] **Open in Muxy with Muxy on another Space:** you're taken to Muxy's Space.
 - [ ] **Right-click menu:** (a menu-bar tool such as Barbee may take the right click; then use ⋯)
   - [ ] Settings… opens Settings in front;
@@ -149,6 +215,7 @@ These checks cover what the unit tests can't: the window, focus, displays, and t
 - [ ] **Settings:**
   - [ ] the auto-expand toggle takes effect immediately;
   - [ ] Display can be pinned to each connected display, and set back to "Follow focused app";
+  - [ ] **Panel opens** offers below (the default), above, left and right, and takes effect the next time the panel opens;
   - [ ] the hooks status matches the settings file;
   - [ ] **Launch at login:** toggling it works, or shows macOS's reason when it refuses (an ad hoc signed build may be refused);
   - [ ] **Muxy CLI path:** a path to another `muxy` binary is used at once ("Muxy found: <path>"), a path that doesn't exist falls back to automatic detection, and clearing it goes back to automatic detection;

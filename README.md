@@ -45,9 +45,19 @@ The eye is on the display of the app you are working in, and it follows you when
 
 **Click** the eye to open the panel. **Right-click** it, or use the **⋯** button in the open panel's top-right corner, for Settings…, Hide for 1 Hour, and Quit Muxy Eye. Menu-bar tools such as Barbee can take right clicks in the menu bar, so the ⋯ button is always there. A hidden eye comes back after the hour, or when you start the app again.
 
+**Moving and resizing.** You can put the collapsed eye anywhere on the screen, and make it smaller or larger:
+
+- **Move:** press the eye (or its count) and drag it. It follows the pointer and stays where you let go. A drag never opens the panel; only a press that you release without moving it, by less than about 4 points, is a click.
+- **Resize:** scroll over the eye, with a mouse wheel or on a trackpad. Scrolling up (the wheel or your fingers moving away from you) makes it larger, scrolling down smaller, from about half its usual size to about three times it. The count grows and shrinks with it. With natural scrolling on or off, the same movement grows it.
+- **Shape:** once moved or resized, the eye is a free circle with the count beside it from two waiting sessions on, on every display, also on one with a notch (no wings). It stays on the screen, and it never goes behind the notch: dropped there, it moves just beside or below it.
+- **Every display:** the eye keeps the same place relative to the screen, and the same size relative to its usual one, on every display. It still follows the display of the app you are working in, or the display pinned in Settings. Its place and size are kept when you quit and start the app again.
+- **Reset:** once you have moved or resized it, the eye's menu (right-click or ⋯) has **Reset Position and Size**. It puts the eye back at the top centre at its usual size, with the notch's wings again on a notch display.
+
+Only the collapsed eye can be moved or resized, not while the panel is open.
+
 ## The panel
 
-The panel drops down from the eye. On the left, a rail lists every agent session Muxy knows about:
+The panel grows out of the eye, on the side of it chosen in Settings (**Panel opens**). With the eye at its default spot and the panel below it, the default, it drops down from the top of the screen. On the left, a rail lists every agent session Muxy knows about:
 
 - the order is waiting sessions (oldest first), then working ones, then idle ones;
 - each row shows a small eye in that session's state, the project name, and a short status: what it is waiting for and for how long (`approval · 2m`, `question · 40s`, `finished · 10s`), or `working` or `idle`;
@@ -195,6 +205,7 @@ The helper does nothing for Claude sessions outside Muxy. It never prints anythi
 
 - **Expand automatically when an agent needs you:** see [Auto-expand](#auto-expand).
 - **Display:** follow the focused app, or pin the eye to one display.
+- **Panel opens:** below the eye (the default), above it, or to its left or right. If the panel has no room on that side, it opens on the opposite side, and it is always kept fully on the screen, clear of the menu bar, the Dock and the notch. With the eye at its default spot, below is the panel hanging from the top of the screen as before, and above opens it there too, since there is no room above the eye. The panel covers the eye it grows out of; an eye outside the panel's area, in the menu bar for example, stays visible beside the open panel, and clicking it closes the panel.
 - **Launch at login:** if macOS refuses, the reason appears under the toggle.
 - **Claude hooks:** the settings file in use, the hooks' status, and Install, Update or Remove.
 - **Muxy CLI path:** set it if Muxy Eye can't find `muxy` by itself.
