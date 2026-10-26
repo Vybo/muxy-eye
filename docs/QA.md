@@ -102,7 +102,10 @@ Start each group from the default spot and size: use **Reset Position and Size**
 Settings → **Panel opens**. Check each side with the eye moved to the middle of the screen, then near the screen's edges. Check on a notch display and a non-notch one.
 
 - [ ] **Each side** (below, above, left, right):
-  - [ ] the panel grows out of the eye on that side, with the same spring as before, covering the eye, and pulls back into the eye when it closes;
+  - [ ] the panel opens beside the eye on that side, a few points from it (and from where its count goes), grows out of the eye with the same spring as before, and pulls back into the eye when it closes;
+  - [ ] the eye stays visible the whole time, with its line and count: while the panel opens, while it is open, and while it closes. Check this over a dark window too (a Muxy terminal): there is no moment without the eye at the end of closing;
+  - [ ] a click on the eye while the panel is open closes it;
+  - [ ] when a count appears or goes while the panel is open, the panel doesn't move;
   - [ ] the panel has its usual size, with all four corners rounded;
   - [ ] the content isn't cut off, and nothing sits under the notch or the menu bar;
   - [ ] when the content grows (a longer prompt), the panel stays on the side it opened on.
@@ -112,7 +115,7 @@ Settings → **Panel opens**. Check each side with the eye moved to the middle o
 - [ ] **Eye in the menu bar** (resize it at the default spot, or drag it to the top), also a large one reaching below the menu bar:
   - [ ] with "below" or "above", the panel hangs from the top of the screen as before, centred on the eye (kept on the screen at its edges), square on top, content below the notch on a notch display, covering the eye;
   - [ ] with "left" or "right", the panel opens under the menu bar beside the eye; an eye fully in the menu bar stays visible above it, keeps animating, and a click on it closes the panel.
-- [ ] **Clicks beside the open panel:** with the panel open beside an eye it doesn't cover (eye in the menu bar with "left" or "right", or an eye over the Dock):
+- [ ] **Clicks beside the open panel:** with the panel open beside the eye (a moved eye mid-screen with any side, an eye in the menu bar with "left" or "right", or an eye over the Dock):
   - [ ] clicks in the empty space between the eye and the panel, and next to them, reach the menu bar, the Dock or the app below, and close the panel;
   - [ ] a scroll there scrolls what is below, and a file dragged from Finder across that space can be dropped on what is below;
   - [ ] clicks on the panel and on the eye still work as above, also right after moving the pointer quickly from the space onto them;

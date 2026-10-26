@@ -22,8 +22,8 @@ final class EyeStage {
     var expandedFrame: CGRect = .zero
     /// Room left at the top of the panel for the physical notch.
     var topInset: CGFloat = 0
-    /// The expanded panel covers the eye, whose signal line and count then fade into it. An eye
-    /// beside the panel, in the menu bar above it for one, keeps showing.
+    /// The expanded panel covers the eye, whose signal line and count then fade into it: below an eye
+    /// in the menu bar, or when neither side has room. An eye beside the panel keeps showing.
     var eyeCovered = true
 
     /// The panel's black shape: on the eye at rest collapsed, the panel's frame when expanded.

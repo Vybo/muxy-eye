@@ -209,23 +209,72 @@ import Testing
         }
     }
 
-    @Test func aMovedEyesPanelGrowsOutOfItOnTheChosenSide() {
+    @Test func aFloatingEyesPanelOpensBesideItOnTheChosenSide() {
+        // The eye spans x 1709.5…1730.5, y 709.5…730.5; with two waiting its count reaches x 1752.5.
         let collapsed = EyeLayout.collapsed(on: ultrawide, waitingCount: 0, placement: middle)
         #expect(eye(collapsed) == CGRect(x: 1709.5, y: 709.5, width: 21, height: 21))
-        func frame(_ side: PanelSide) -> CGRect {
-            EyeLayout.expandedFrame(on: ultrawide, contentHeight: 300, collapsed: collapsed, placement: middle, side: side)
+        func frame(_ side: PanelSide, count: Int = 0) -> CGRect {
+            let layout = EyeLayout.collapsed(on: ultrawide, waitingCount: count, placement: middle)
+            return EyeLayout.expandedFrame(on: ultrawide, contentHeight: 300, collapsed: layout, placement: middle, side: side)
         }
-        #expect(frame(.below) == CGRect(x: 1400, y: 430.5, width: 640, height: 300))
-        #expect(frame(.above) == CGRect(x: 1400, y: 709.5, width: 640, height: 300))
-        #expect(frame(.left) == CGRect(x: 1090.5, y: 570, width: 640, height: 300))
-        #expect(frame(.right) == CGRect(x: 1709.5, y: 570, width: 640, height: 300))
+        // 8 pt from the eye and its count, centred on the eye.
+        #expect(frame(.below) == CGRect(x: 1400, y: 401.5, width: 640, height: 300))
+        #expect(frame(.above) == CGRect(x: 1400, y: 738.5, width: 640, height: 300))
+        #expect(frame(.left) == CGRect(x: 1061.5, y: 570, width: 640, height: 300))
+        #expect(frame(.right) == CGRect(x: 1760.5, y: 570, width: 640, height: 300))
         let notch = EyeLayout.collapsed(on: mbp14, waitingCount: 0, placement: middle)
+        let counted = EyeLayout.collapsed(on: ultrawide, waitingCount: 2, placement: middle)
         for side in PanelSide.allCases {
             #expect(EyeLayout.openingSide(side, on: ultrawide, collapsed: collapsed, placement: middle, contentHeight: 300) == side)
             #expect(EyeLayout.topInset(on: mbp14, collapsed: notch, placement: middle, side: side) == 0)
             #expect(EyeLayout.hangsFromTop(on: ultrawide, collapsed: collapsed, placement: middle, side: side) == false)
-            #expect(EyeLayout.panel(frame(side), covers: collapsed))
+            // The eye and its count stay visible beside the open panel, which doesn't move when the count comes.
+            #expect(EyeLayout.panel(frame(side), covers: collapsed) == false)
+            #expect(frame(side).intersects(counted.panelFrame) == false)
+            #expect(frame(side, count: 2) == frame(side))
         }
+    }
+
+    @Test func theWindowShowsAnUncoveredEyeInEveryPhase() {
+        let placements = [middle, quarter, EyePlacement(position: CGPoint(x: 0.7, y: 0.3), scale: 2.5), EyePlacement(scale: 0.8)]
+        var hidden: [String] = []
+        for screen in screens {
+            for placement in placements {
+                for count in [0, 2] {
+                    let collapsed = EyeLayout.collapsed(on: screen, waitingCount: count, placement: placement)
+                    let eyeOutline = EyeLayout.collapsedOutline(collapsed).frame
+                    for wanted in PanelSide.allCases {
+                        let side = EyeLayout.openingSide(
+                            wanted, on: screen, collapsed: collapsed, placement: placement, contentHeight: 300)
+                        let expanded = EyeLayout.expandedFrame(
+                            on: screen, contentHeight: 300, collapsed: collapsed, placement: placement, side: side)
+                        guard !EyeLayout.panel(expanded, covers: collapsed) else { continue }
+                        let stage = EyeLayout.stageFrame(on: screen, placement: placement, side: wanted)
+                        let margin = EyeLayout.motionMargin(on: screen, placement: placement, side: wanted)
+                        // The window through a whole open-and-close cycle, as the window controller drives it.
+                        let start = ContinuousClock.now
+                        var window = EyeWindowFrame(footprint: PanelPhase.collapsed.footprint(collapsed: collapsed, expanded: expanded))
+                        var frames = [("collapsed", window.frame(within: stage))]
+                        window.animate(
+                            to: PanelPhase.opening.footprint(collapsed: collapsed, expanded: expanded),
+                            at: start, for: .milliseconds(700), margin: margin)
+                        frames.append(("opening", window.frame(within: stage)))
+                        window.settle(at: start + .milliseconds(700))
+                        frames.append(("expanded", window.frame(within: stage)))
+                        window.animate(
+                            to: PanelPhase.closing.footprint(collapsed: collapsed, expanded: expanded),
+                            at: start + .seconds(1), for: .milliseconds(640), margin: margin)
+                        frames.append(("closing", window.frame(within: stage)))
+                        window.settle(at: start + .seconds(2))
+                        frames.append(("collapsed again", window.frame(within: stage)))
+                        for (phase, frame) in frames where !frame.contains(eyeOutline) || !stage.contains(eyeOutline) {
+                            hidden.append("\(placement) \(wanted) \(count) \(phase)")
+                        }
+                    }
+                }
+            }
+        }
+        #expect(hidden.isEmpty)
     }
 
     @Test func aMovedEyesPanelIsAsTallAsBeforeAtMost() {
@@ -345,8 +394,8 @@ import Testing
         #expect(EyeLayout.hangsFromTop(on: mbp14, collapsed: collapsed, placement: onNotch, side: .below) == false)
         let frame = EyeLayout.expandedFrame(
             on: mbp14, contentHeight: 300, collapsed: collapsed, placement: onNotch, side: .below)
-        #expect(frame == CGRect(x: 436, y: 650, width: 640, height: 300))
-        #expect(EyeLayout.panel(frame, covers: collapsed))
+        #expect(frame == CGRect(x: 436, y: 618, width: 640, height: 300))
+        #expect(EyeLayout.panel(frame, covers: collapsed) == false)
         #expect(EyeLayout.expandedOutline(frame, on: mbp14).topRadius == EyeLayout.panelCornerRadius)
     }
 
@@ -495,8 +544,11 @@ import Testing
     @Test func aFreePanelsMarginCoversItsLongestTravel() throws {
         let overshoot = try #require(PanelMotion().shapeOpen).curve.overshoot
         for screen in screens {
+            // Beside the eye, the panel's far edge travels across the eye, its count, the gap and the panel.
+            let room = EyeLayout.collapsed(on: screen, waitingCount: 2, placement: middle).panelFrame
+            let travel = EyeLayout.panelWidth + EyeLayout.panelGap + room.width
             for side in PanelSide.allCases {
-                #expect(EyeLayout.motionMargin(on: screen, placement: middle, side: side) >= overshoot * EyeLayout.panelWidth)
+                #expect(EyeLayout.motionMargin(on: screen, placement: middle, side: side) >= 2 * overshoot * travel)
             }
         }
     }

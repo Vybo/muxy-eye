@@ -97,11 +97,13 @@ extension EyeLayout {
         return fits(side.opposite) ? side.opposite : side
     }
 
-    /// The panel on `side` of the eye. It grows out of the eye: the edge facing away from `side`
-    /// lines up with the eye's, and the panel is centred on the eye along that edge. It stays inside
-    /// the visible frame, clear of the menu bar, the Dock and the notch. Below an eye in the menu bar
-    /// it hangs from the top of the screen instead, as it always did: at the default spot exactly as
-    /// before, elsewhere centred on the eye.
+    /// The panel on `side` of the eye. It opens beside the eye, `panelGap` from it and from the room
+    /// its count takes, centred on the eye, so the eye stays in sight while the panel is open; the
+    /// panel's shape still grows out of the eye and pulls back into it. It stays inside the visible
+    /// frame, clear of the menu bar, the Dock and the notch, and only covers the eye when neither
+    /// side has room for it. Below an eye in the menu bar it hangs from the top of the screen
+    /// instead, over the eye, as it always did: at the default spot exactly as before, elsewhere
+    /// centred on the eye.
     public static func expandedFrame(
         on screen: ScreenGeometry,
         contentHeight: CGFloat,
@@ -118,13 +120,23 @@ extension EyeLayout {
             return CGRect(x: x, y: hanging.minY, width: hanging.width, height: hanging.height)
         }
         let size = panelSize(on: screen, contentHeight: contentHeight)
+        let room = roomAroundEye(on: screen, collapsed: collapsed, placement: placement)
         let origin = switch side {
-        case .below: CGPoint(x: eye.midX - size.width / 2, y: eye.maxY - size.height)
-        case .above: CGPoint(x: eye.midX - size.width / 2, y: eye.minY)
-        case .left: CGPoint(x: eye.maxX - size.width, y: eye.midY - size.height / 2)
-        case .right: CGPoint(x: eye.minX, y: eye.midY - size.height / 2)
+        case .below: CGPoint(x: eye.midX - size.width / 2, y: room.minY - panelGap - size.height)
+        case .above: CGPoint(x: eye.midX - size.width / 2, y: room.maxY + panelGap)
+        case .left: CGPoint(x: room.minX - panelGap - size.width, y: eye.midY - size.height / 2)
+        case .right: CGPoint(x: room.maxX + panelGap, y: eye.midY - size.height / 2)
         }
         return clamp(CGRect(origin: origin, size: size), into: panelBounds(on: screen))
+    }
+
+    /// How far a panel beside the eye stays from it.
+    public static let panelGap: CGFloat = 8
+
+    /// What a panel beside the eye keeps clear of: the eye and the room its count takes, also while
+    /// no count shows, so the panel doesn't move when one comes.
+    private static func roomAroundEye(on screen: ScreenGeometry, collapsed: CollapsedLayout, placement: EyePlacement) -> CGRect {
+        collapsed.panelFrame.union(Self.collapsed(on: screen, waitingCount: 2, placement: placement).panelFrame)
     }
 
     /// Whether the panel on `side` hangs from the top of the screen, as it always did: below the eye
@@ -189,12 +201,14 @@ extension EyeLayout {
         return shapes.insetBy(dx: -margin, dy: -margin).intersection(screen.frame)
     }
 
-    /// Room around a moving shape for its overshoot. A free panel can grow out of the eye across its
-    /// whole width, not just half of it.
+    /// Room around a moving shape for its overshoot. A panel beside the eye grows out of it across
+    /// the eye, its count, the gap and the whole panel, not just half of the panel.
     public static func motionMargin(on screen: ScreenGeometry, placement: EyePlacement, side: PanelSide) -> CGFloat {
         if opensFromTheTop(placement, side) { return motionMargin(on: screen) }
         let tallest = panelSize(on: screen, contentHeight: .greatestFiniteMagnitude)
-        return PanelMotion.overshootMargin(forTravel: max(tallest.width, tallest.height))
+        let room = collapsed(on: screen, waitingCount: 2, placement: placement).panelFrame
+        let travel = max(tallest.width + room.width, tallest.height + room.height) + panelGap
+        return PanelMotion.overshootMargin(forTravel: travel)
     }
 
     // MARK: Helpers
@@ -236,12 +250,12 @@ extension EyeLayout {
         if hangsFromTop(on: screen, collapsed: collapsed, placement: placement, side: side) { return true }
         let bounds = panelBounds(on: screen)
         let size = panelSize(on: screen, contentHeight: contentHeight)
-        let eye = collapsed.onScreen(collapsed.eyeFrame)
+        let room = roomAroundEye(on: screen, collapsed: collapsed, placement: placement)
         return switch side {
-        case .below: eye.maxY - size.height >= bounds.minY
-        case .above: eye.minY + size.height <= bounds.maxY
-        case .left: eye.maxX - size.width >= bounds.minX
-        case .right: eye.minX + size.width <= bounds.maxX
+        case .below: room.minY - panelGap - size.height >= bounds.minY
+        case .above: room.maxY + panelGap + size.height <= bounds.maxY
+        case .left: room.minX - panelGap - size.width >= bounds.minX
+        case .right: room.maxX + panelGap + size.width <= bounds.maxX
         }
     }
 

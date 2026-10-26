@@ -121,11 +121,25 @@ import Testing
     }
 
     @Test func aCountUnderThePanelTakesNoClicks() {
+        // Below an eye in the menu bar the panel hangs from the top over it.
+        let smaller = EyePlacement(scale: 0.8)
+        let collapsed = EyeLayout.collapsed(on: ultrawide, waitingCount: 2, placement: smaller)
+        let expanded = EyeLayout.expandedFrame(
+            on: ultrawide, contentHeight: 300, collapsed: collapsed, placement: smaller, side: .below)
+        #expect(EyeLayout.clickOutlines(collapsed, expanded: expanded).count == 2)
+        #expect(EyeLayout.clickOutlines(collapsed, expanded: nil).count == 2)
+    }
+
+    @Test func aFloatingEyeAndItsCountTakeClicksBesideTheOpenPanel() {
         let middle = EyePlacement(position: CGPoint(x: 0.5, y: 0.5))
         let collapsed = EyeLayout.collapsed(on: ultrawide, waitingCount: 2, placement: middle)
         let expanded = EyeLayout.expandedFrame(
-            on: ultrawide, contentHeight: 300, collapsed: collapsed, placement: middle, side: .below)
-        #expect(EyeLayout.clickOutlines(collapsed, expanded: expanded).count == 2)
-        #expect(EyeLayout.clickOutlines(collapsed, expanded: nil).count == 2)
+            on: ultrawide, contentHeight: 300, collapsed: collapsed, placement: middle, side: .right)
+        let outlines = EyeLayout.clickOutlines(collapsed, expanded: expanded)
+        #expect(outlines.count == 3)
+        #expect(ClickThrough.hits(EyeLayout.eyeCenter(of: collapsed), outlines))
+        // The room above and below the eye, left of the panel, lets clicks through.
+        let window = PanelPhase.expanded.footprint(collapsed: collapsed, expanded: expanded)
+        #expect(ClickThrough.hasGap(in: window, around: outlines))
     }
 }
