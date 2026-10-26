@@ -373,6 +373,66 @@ import Testing
         #expect(frame.maxY == 950)
     }
 
+    // MARK: Grabbing and resizing
+
+    @Test func grabbingTheNotchPutsTheEyeUnderThePointer() {
+        let notch = EyeLayout.collapsed(on: mbp14, waitingCount: 1)
+        let onCount = CGPoint(x: 867, y: 966)
+        #expect(EyeLayout.grabCenter(of: notch, pressedAt: onCount) == onCount)
+        let nearTheEye = CGPoint(x: 648, y: 968)
+        #expect(EyeLayout.grabCenter(of: notch, pressedAt: nearTheEye) == nearTheEye)
+        // Dragged from there, the circle's centre is the pointer.
+        var drag = EyeDrag(start: onCount, eyeCenter: EyeLayout.grabCenter(of: notch, pressedAt: onCount))
+        #expect(drag.move(to: CGPoint(x: 880, y: 800)) == CGPoint(x: 880, y: 800))
+    }
+
+    @Test func grabbingACircleKeepsWhereItWasHeldButNotFromItsCount() {
+        let free = EyeLayout.collapsed(on: ultrawide, waitingCount: 2, placement: quarter)
+        #expect(EyeLayout.grabCenter(of: free, pressedAt: CGPoint(x: 865, y: 716)) == CGPoint(x: 860, y: 720))
+        let onCount = CGPoint(x: 883.5, y: 720)
+        #expect(EyeLayout.grabCenter(of: free, pressedAt: onCount) == onCount)
+        // The menu-bar eye and its count alike.
+        let plain = EyeLayout.collapsed(on: ultrawide, waitingCount: 2)
+        let center = EyeLayout.eyeCenter(of: plain)
+        #expect(EyeLayout.grabCenter(of: plain, pressedAt: CGPoint(x: center.x + 2, y: center.y + 1)) == center)
+        let plainCount = plain.onScreen(plain.countFrame ?? .zero)
+        let onPlainCount = CGPoint(x: plainCount.midX, y: plainCount.midY)
+        #expect(EyeLayout.grabCenter(of: plain, pressedAt: onPlainCount) == onPlainCount)
+    }
+
+    @Test func resizingTheNotchPutsTheCircleUnderThePointer() {
+        let notch = EyeLayout.collapsed(on: mbp14, waitingCount: 1)
+        let pointer = CGPoint(x: 867, y: 966)
+        let anchored = EyeLayout.anchoredForResize(.standard, layout: notch, pointer: pointer, on: mbp14)
+        #expect(anchored.scale == 1)
+        let resized = anchored.resized(byScroll: 10, precise: true, inverted: false)
+        let layout = EyeLayout.collapsed(on: mbp14, waitingCount: 1, placement: resized)
+        #expect(EyeLayout.collapsedOutline(layout).contains(pointer))
+        let center = EyeLayout.eyeCenter(of: layout)
+        #expect(close(center.x, pointer.x))
+        #expect(close(center.y, pointer.y))
+    }
+
+    @Test func resizingTheMenuBarEyeKeepsItsSpotUnlessThePointerIsOffIt() throws {
+        let plain = EyeLayout.collapsed(on: ultrawide, waitingCount: 2)
+        let onEye = EyeLayout.eyeCenter(of: plain)
+        #expect(EyeLayout.anchoredForResize(.standard, layout: plain, pointer: onEye, on: ultrawide) == .standard)
+        let count = plain.onScreen(try #require(plain.countFrame))
+        let onCount = CGPoint(x: count.midX, y: count.midY)
+        let anchored = EyeLayout.anchoredForResize(.standard, layout: plain, pointer: onCount, on: ultrawide)
+        let layout = EyeLayout.collapsed(
+            on: ultrawide, waitingCount: 2, placement: anchored.resized(byScroll: 10, precise: true, inverted: false))
+        #expect(EyeLayout.collapsedOutline(layout).contains(onCount))
+    }
+
+    @Test func resizingAMovedOrResizedEyeKeepsItsPlace() {
+        let moved = EyeLayout.collapsed(on: ultrawide, waitingCount: 0, placement: quarter)
+        #expect(EyeLayout.anchoredForResize(quarter, layout: moved, pointer: CGPoint(x: 200, y: 200), on: ultrawide) == quarter)
+        let bigger = EyePlacement(scale: 2)
+        let resized = EyeLayout.collapsed(on: mbp14, waitingCount: 1, placement: bigger)
+        #expect(EyeLayout.anchoredForResize(bigger, layout: resized, pointer: CGPoint(x: 867, y: 966), on: mbp14) == bigger)
+    }
+
     @Test func aFreePanelIsRoundedAllRound() {
         let collapsed = EyeLayout.collapsed(on: ultrawide, waitingCount: 0, placement: middle)
         let frame = EyeLayout.expandedFrame(

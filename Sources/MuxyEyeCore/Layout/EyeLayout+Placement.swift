@@ -46,12 +46,37 @@ extension EyeLayout {
 
     /// What a press can grab the collapsed eye by, on screen: its black shape and the count's capsule.
     public static func grabOutlines(_ layout: CollapsedLayout) -> [EyeOutline] {
-        var outlines = [collapsedOutline(layout)]
-        if let count = layout.countFrame {
-            let badge = layout.onScreen(count)
-            outlines.append(EyeOutline(frame: badge, topRadius: badge.height / 2, bottomRadius: badge.height / 2))
+        [collapsedOutline(layout)] + [countOutline(layout)].compactMap { $0 }
+    }
+
+    /// The count's capsule, on screen; nil without a count.
+    static func countOutline(_ layout: CollapsedLayout) -> EyeOutline? {
+        guard let count = layout.countFrame else { return nil }
+        let badge = layout.onScreen(count)
+        return EyeOutline(frame: badge, topRadius: badge.height / 2, bottomRadius: badge.height / 2)
+    }
+
+    /// Where the eye's centre is taken to be when a press at `point` grabs it. Held by its circle, the
+    /// eye keeps the offset from the pointer it had. Grabbed by its count, or by the notch's wings,
+    /// which are far wider than the circle they turn into, the circle comes to the pointer.
+    public static func grabCenter(of layout: CollapsedLayout, pressedAt point: CGPoint) -> CGPoint {
+        guard layout.shapeFrame == nil, collapsedOutline(layout).contains(point) else { return point }
+        return eyeCenter(of: layout)
+    }
+
+    /// The placement to resize from when the pointer is at `pointer`. The eye at its default spot turns
+    /// into a circle as soon as it is resized; scrolled over the notch's wings, or beside the menu-bar
+    /// eye, that circle is put under the pointer, so the scrolling keeps resizing it.
+    public static func anchoredForResize(
+        _ placement: EyePlacement,
+        layout: CollapsedLayout,
+        pointer: CGPoint,
+        on screen: ScreenGeometry
+    ) -> EyePlacement {
+        guard !placement.isCustomized, layout.shapeFrame != nil || !collapsedOutline(layout).contains(pointer) else {
+            return placement
         }
-        return outlines
+        return EyePlacement(position: position(of: pointer, on: screen), scale: placement.scale)
     }
 
     // MARK: Panel

@@ -370,8 +370,10 @@ final class EyeWindowController: EyePresenting {
     private func eyePointer(_ pointer: EyePointer) {
         switch pointer {
         case .down(let point):
+            // A press whose release never arrived ends here; an eye it dragged stays where it is.
+            endPress()
             guard stage.phase == .collapsed, !model.expanded else { return }
-            press = EyeDrag(start: point, eyeCenter: EyeLayout.eyeCenter(of: stage.collapsed))
+            press = EyeDrag(start: point, eyeCenter: EyeLayout.grabCenter(of: stage.collapsed, pressedAt: point))
         case .dragged(let point):
             guard var press, let center = press.move(to: point) else { return }
             self.press = press
@@ -427,23 +429,29 @@ final class EyeWindowController: EyePresenting {
         updateFrame()
     }
 
-    /// The panel opens while the eye is pressed, on its own: the press ends there, and a dragged eye
-    /// stays where it got to.
+    /// The panel opens on its own while the eye is pressed, or a press's release never arrived: the
+    /// press ends there, and a dragged eye stays where it got to.
     private func endPress() {
         press = nil
         if draggedPlacement != nil { dropEye() }
     }
 
-    /// Scrolling over the collapsed eye resizes it around its centre. Only the fingers' own movement
+    /// Scrolling over the collapsed eye resizes it around its centre; from the notch's wings, or beside
+    /// the menu-bar eye, the circle it becomes comes under the pointer. Only the fingers' own movement
     /// counts; momentum after they lift would keep resizing it.
     private func eyeScrolled(_ event: NSEvent) {
-        guard press == nil, stage.phase == .collapsed, !model.expanded, event.momentumPhase.isEmpty else { return }
+        if press != nil, NSEvent.pressedMouseButtons & 1 == 0 { endPress() }
+        guard press == nil, let geometry, stage.phase == .collapsed, !model.expanded, event.momentumPhase.isEmpty else {
+            return
+        }
         let current = settings.eyePlacement
-        let resized = current.resized(
+        let anchored = EyeLayout.anchoredForResize(
+            current, layout: stage.collapsed, pointer: NSEvent.mouseLocation, on: geometry)
+        let resized = anchored.resized(
             byScroll: event.scrollingDeltaY,
             precise: event.hasPreciseScrollingDeltas,
             inverted: event.isDirectionInvertedFromDevice)
-        guard resized != current else { return }
+        guard resized.scale != current.scale else { return }
         settings.eyePlacement = resized
         updateFrame()
     }
