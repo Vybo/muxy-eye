@@ -139,7 +139,9 @@ These checks cover what the unit tests can't: the window, focus, displays, and t
   - [ ] the status says Installed.
 - [ ] **Update:** after an older install, the status says Needs update, and Update fixes it.
 - [ ] **Remove:** only entries containing `muxy-eye-hook` are removed.
-- [ ] **Right-click menu:**
+- [ ] **⋯ menu button** (top-right of the open panel) shows the same three items and works with a menu-bar tool like Barbee running.
+- [ ] **Open in Muxy with Muxy on another Space:** you're taken to Muxy's Space.
+- [ ] **Right-click menu:** (a menu-bar tool such as Barbee may take the right click; then use ⋯)
   - [ ] Settings… opens Settings in front;
   - [ ] Hide for 1 Hour hides the eye;
   - [ ] Quit Muxy Eye quits.

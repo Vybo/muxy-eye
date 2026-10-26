@@ -43,7 +43,7 @@ Waiting wins over working. The change from wave to ring happens within about a s
 
 The eye is on the display of the app you are working in, and it follows you when you switch. Settings can pin it to one display instead. It shows on every Space and over full-screen apps. Clicks are meant to land only on the visible shape, so the rest of the menu bar works as usual. That is checked by hand, as one of the items in the [QA checklist](docs/QA.md).
 
-**Click** the eye to open the panel. **Right-click** it for Settings…, Hide for 1 Hour, and Quit Muxy Eye. A hidden eye comes back after the hour, or when you start the app again.
+**Click** the eye to open the panel. **Right-click** it, or use the **⋯** button in the open panel's top-right corner, for Settings…, Hide for 1 Hour, and Quit Muxy Eye. Menu-bar tools such as Barbee can take right clicks in the menu bar, so the ⋯ button is always there. A hidden eye comes back after the hour, or when you start the app again.
 
 ## The panel
 
@@ -95,7 +95,7 @@ A finished turn also clears when you look at that pane in Muxy, or when you send
 - **Waiting, but no prompt details:** this happens for a blocked agent other than Claude, or for a Claude prompt that appeared before Muxy Eye or its hooks were running. The row says `needs input`, and the panel shows the last lines of the terminal as plain, read-only text, plus Open in Muxy. Muxy Eye never builds answer buttons from the terminal text alone.
 - **Working or idle Claude sessions:** the panel shows the state, plus Claude's last message when Muxy Eye has seen one.
 
-**Open in Muxy ↗** brings Muxy to the front, opens the session's project, marks the session's Muxy alerts as read, and closes the panel.
+**Open in Muxy ↗** brings Muxy to the front, switching to its Space if it's on another one, opens the session's project, marks the session's Muxy alerts as read, and closes the panel.
 
 **Closing.** The panel closes when you press Esc, when you click anywhere outside it, or about a second after the last waiting item is answered or cleared. While a message such as "Prompt changed" is showing, it stays open so you can read it.
 
@@ -223,7 +223,7 @@ Path changes apply when you press Return or leave the field. You can also open S
 ## Uninstall
 
 1. In Settings, under Claude hooks, press **Remove**. Turn off **Launch at login** too.
-2. Right-click the eye and choose **Quit Muxy Eye**.
+2. Right-click the eye, or use the panel's **⋯** button, and choose **Quit Muxy Eye**.
 3. Delete the app and the `~/Library/Application Support/Muxy Eye` folder.
 
 Optionally, run `defaults delete io.github.vybo.muxy-eye`, and delete the `settings.json.muxy-eye-backup-*` copies next to Claude's settings.

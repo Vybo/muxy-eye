@@ -31,6 +31,12 @@ struct ExpandedPanelView: View {
         VStack(spacing: 0) {
             Color.clear.frame(height: topInset)
             content(revealed: revealed, motion: motion)
+                // The eye's menu, also here because menu-bar tools can take the eye's right clicks.
+                .overlay(alignment: .topTrailing) {
+                    PanelMenuButton(model: model)
+                        .padding(.top, 12)
+                        .padding(.trailing, 12)
+                }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .reveal(revealed, show: reopening ? motion.contentReturn : motion.contentIn, hide: motion.contentOut)
@@ -127,6 +133,8 @@ private struct SessionDetailView: View {
                         .foregroundStyle(PanelTheme.secondaryText)
                 }
                 .lineLimit(1)
+                // Room for the menu button in the panel's top-right corner.
+                .padding(.trailing, PanelMenuButton.width)
 
                 if let label = SessionPresentation.kindLabel(for: record, in: state, screen: screen) {
                     Text(verbatim: label)

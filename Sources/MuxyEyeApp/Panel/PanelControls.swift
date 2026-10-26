@@ -175,6 +175,30 @@ struct OpenInMuxyButton: View {
     }
 }
 
+/// The eye's menu as a button in the expanded panel: menu-bar tools can take right clicks on the eye.
+struct PanelMenuButton: View {
+    static let width: CGFloat = 24
+
+    let model: AppModel
+
+    var body: some View {
+        Menu {
+            EyeMenu(model: model)
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(PanelTheme.secondaryText)
+                .frame(width: Self.width, height: 18)
+                .contentShape(Rectangle())
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Muxy Eye menu")
+        .accessibilityLabel("Muxy Eye menu")
+    }
+}
+
 /// The inline banner after an undelivered answer; clicking it opens Muxy.
 struct BannerView: View {
     let message: String
