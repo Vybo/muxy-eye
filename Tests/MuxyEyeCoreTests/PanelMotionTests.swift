@@ -61,6 +61,20 @@ import Testing
         #expect(motion.eyeIn.totalTime <= motion.closeDuration)
     }
 
+    @Test func aCoveredMovedEyeIsBackBeforeOnlyBlackShapesAreLeft() throws {
+        // Away from the notch's wings, the eye's line and count are all that shows it on a dark window.
+        let shape = try #require(motion.shapeClose)
+        let out = try #require(motion.contentOut)
+        #expect(motion.eyeReturn.delay <= out.totalTime)
+        #expect(motion.eyeReturn.delay >= shape.delay)
+        #expect(motion.eyeReturn.totalTime <= shape.totalTime)
+        #expect(motion.eyeReturn.totalTime <= motion.closeDuration)
+        // With Reduce Motion the panel fades over the eye while the eye fades back in.
+        let fade = try #require(reduced.panelFade)
+        #expect(reduced.eyeReturn.delay <= fade.totalTime)
+        #expect(reduced.eyeReturn.totalTime <= reduced.closeDuration)
+    }
+
     @Test func windowWaitsForEveryShapeAnimation() throws {
         let open = try #require(motion.shapeOpen)
         let shape = try #require(motion.shapeClose)

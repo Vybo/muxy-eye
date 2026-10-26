@@ -25,6 +25,9 @@ final class EyeStage {
     /// The expanded panel covers the eye, whose signal line and count then fade into it: below an eye
     /// in the menu bar, or when neither side has room. An eye beside the panel keeps showing.
     var eyeCovered = true
+    /// The eye was moved or resized: without the notch's wings to show it, its line and count come
+    /// back as soon as the panel's shape starts pulling back over it, not once the shape has landed.
+    var eyeReturnsEarly = false
 
     /// The panel's black shape: on the eye at rest collapsed, the panel's frame when expanded.
     var panelOutline = EyeOutline(frame: .zero, topRadius: 0, bottomRadius: 0)

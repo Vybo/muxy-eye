@@ -111,6 +111,14 @@ public struct PanelMotion: Sendable, Equatable {
     /// The signal line and count coming back as the shape lands, or with the panel's fade.
     public var eyeIn: Motion { reduceMotion ? Self.fade : Motion(.easeOut(duration: 0.16), delay: 0.3) }
 
+    /// The signal line and count coming back as a panel that covered a moved eye closes: from the
+    /// moment the shape starts pulling back, while the content is still fading. Away from the notch's
+    /// wings they are all that shows the eye on a dark window, so there is never a moment with only
+    /// black shapes left.
+    public var eyeReturn: Motion {
+        reduceMotion ? Self.fade : Motion(.easeOut(duration: 0.16), delay: shapeClose?.delay ?? 0)
+    }
+
     /// The signal line and count fading as the shape starts to grow.
     public var eyeOut: Motion { Motion(.easeOut(duration: 0.12)) }
 

@@ -48,7 +48,7 @@ struct CollapsedEyeGlyphs: View {
             }
         }
         .animation(stage.collapsedMotion, value: layout)
-        .reveal(visible, show: motion.eyeIn, hide: motion.eyeOut)
+        .reveal(visible, show: stage.eyeReturnsEarly ? motion.eyeReturn : motion.eyeIn, hide: motion.eyeOut)
         .allowsHitTesting(visible)
         .onAppear { appeared = true }
     }

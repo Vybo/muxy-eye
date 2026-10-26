@@ -163,6 +163,7 @@ final class EyeWindowController: EyePresenting {
         stage.topInset = topInset
         stage.expandedFrame = expanded
         stage.eyeCovered = EyeLayout.panel(expanded, covers: collapsed)
+        stage.eyeReturnsEarly = placement.isCustomized
 
         var duration: Double?
         var margin: CGFloat = 0
@@ -255,6 +256,7 @@ final class EyeWindowController: EyePresenting {
         stage.expandedFrame = expanded
         stage.topInset = topInset
         stage.eyeCovered = EyeLayout.panel(expanded, covers: collapsed)
+        stage.eyeReturnsEarly = arrangement.placement.isCustomized
         stage.panelOutline = phase == .expanded
             ? EyeLayout.expandedOutline(expanded, on: geometry)
             : EyeLayout.collapsedOutline(collapsed)
