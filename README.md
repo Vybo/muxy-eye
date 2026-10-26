@@ -41,14 +41,14 @@ Waiting wins over working. The change from wave to ring happens within about a s
   The eye stays on the left wing, so it never jumps sides.
 - On a display without a notch, the eye is a small circle at the top center of the menu bar. With two or more sessions waiting, a count badge appears beside it.
 
-The eye is on the display of the app you are working in, and it follows you when you switch. Settings can pin it to one display instead. It shows on every Space and over full-screen apps. Clicks are meant to land only on the visible shape, so the rest of the menu bar works as usual. That is checked by hand, as one of the items in the [QA checklist](docs/QA.md).
+The eye is on the display of the app you are working in, and it follows you when you switch. Settings can pin it to one display instead. It shows on every Space and over full-screen apps. Clicks are meant to land only on the visible shape, so the rest of the menu bar works as usual. That holds around a moved or enlarged eye and beside the open panel too: where the eye's window has room around what it shows, a click or a scroll there goes to whatever is below. That is checked by hand, as one of the items in the [QA checklist](docs/QA.md).
 
-**Click** the eye to open the panel. **Right-click** it, or use the **⋯** button in the open panel's top-right corner, for Settings…, Hide for 1 Hour, and Quit Muxy Eye. Menu-bar tools such as Barbee can take right clicks in the menu bar, so the ⋯ button is always there. A hidden eye comes back after the hour, or when you start the app again.
+**Click** the eye to open the panel. **Right-click** it, or use the **⋯** button in the open panel's top-right corner, for Settings…, Hide for 1 Hour, and Quit Muxy Eye, plus Reset Position and Size once you have moved or resized the eye. Menu-bar tools such as Barbee can take right clicks in the menu bar, so the ⋯ button is always there. A hidden eye comes back after the hour, or when you start the app again.
 
 **Moving and resizing.** You can put the collapsed eye anywhere on the screen, and make it smaller or larger:
 
-- **Move:** press the eye (or its count) and drag it. It follows the pointer and stays where you let go. A drag never opens the panel; only a press that you release without moving it, by less than about 4 points, is a click.
-- **Resize:** scroll over the eye, with a mouse wheel or on a trackpad. Scrolling up (the wheel or your fingers moving away from you) makes it larger, scrolling down smaller, from about half its usual size to about three times it. The count grows and shrinks with it. With natural scrolling on or off, the same movement grows it.
+- **Move:** press the eye (or its count) and drag it. It follows the pointer and stays where you let go. Grabbed by its count, or by the notch's wings, the eye's circle comes to the pointer as the drag starts. A drag never opens the panel; only a press that you release without moving it, by less than about 4 points, is a click.
+- **Resize:** scroll over the eye, with a mouse wheel or on a trackpad. Scrolling up (the wheel or your fingers moving away from you) makes it larger, scrolling down smaller, from about half its usual size to about three times it. The count grows and shrinks with it. With natural scrolling on or off, the same movement grows it. Scrolled over the notch's wings, or beside the menu-bar eye, the circle it turns into comes under the pointer, so you can keep scrolling.
 - **Shape:** once moved or resized, the eye is a free circle with the count beside it from two waiting sessions on, on every display, also on one with a notch (no wings). It stays on the screen, and it never goes behind the notch: dropped there, it moves just beside or below it.
 - **Every display:** the eye keeps the same place relative to the screen, and the same size relative to its usual one, on every display. It still follows the display of the app you are working in, or the display pinned in Settings. Its place and size are kept when you quit and start the app again.
 - **Reset:** once you have moved or resized it, the eye's menu (right-click or ⋯) has **Reset Position and Size**. It puts the eye back at the top centre at its usual size, with the notch's wings again on a notch display.
@@ -200,12 +200,12 @@ The helper does nothing for Claude sessions outside Muxy. It never prints anythi
 ## Settings
 
 <p align="center">
-  <img src="docs/images/settings.png" width="480" alt="The Settings window: auto-expand, display, launch at login, the Claude hooks status with Remove, and the Muxy CLI path and profile folder">
+  <img src="docs/images/settings.png" width="480" alt="The Settings window: auto-expand, display, launch at login, the Claude hooks status with Remove, and the Muxy CLI path and profile folder. The Panel opens row, under Display, came later and isn't in this picture">
 </p>
 
 - **Expand automatically when an agent needs you:** see [Auto-expand](#auto-expand).
 - **Display:** follow the focused app, or pin the eye to one display.
-- **Panel opens:** below the eye (the default), above it, or to its left or right. If the panel has no room on that side, it opens on the opposite side, and it is always kept fully on the screen, clear of the menu bar, the Dock and the notch. With the eye at its default spot, below is the panel hanging from the top of the screen as before, and above opens it there too, since there is no room above the eye. The panel covers the eye it grows out of; an eye outside the panel's area, in the menu bar for example, stays visible beside the open panel, and clicking it closes the panel.
+- **Panel opens:** below the eye (the default), above it, or to its left or right. If the panel has no room on that side, it opens on the opposite side, and it is always kept fully on the screen, clear of the Dock, and clear of the menu bar and the notch unless it hangs from the top of the screen. Below an eye in the menu bar (at its default spot, or moved or resized there), the panel hangs from the top of the screen as before, square on top and, on a notch display, with its content below the notch; above opens it there too, since there is no room above such an eye. The panel covers the eye it grows out of. An eye outside the panel's area, to the panel's left or right in the menu bar for example, stays visible beside the open panel, clicking it closes the panel, and clicks between the two go to whatever is below.
 - **Launch at login:** if macOS refuses, the reason appears under the toggle.
 - **Claude hooks:** the settings file in use, the hooks' status, and Install, Update or Remove.
 - **Muxy CLI path:** set it if Muxy Eye can't find `muxy` by itself.

@@ -57,7 +57,8 @@ Start each group from the default spot and size: use **Reset Position and Size**
   - [ ] a press that moves a little (about 2 points) and comes back still opens the panel;
   - [ ] a press that moves more than about 4 points drags the eye: it follows the pointer live, without lag or flicker, and stays where you let go;
   - [ ] after a drag the panel stays closed, nothing is typed into any terminal, and the keyboard stays in the app you were in;
-  - [ ] a drag that starts on the count badge moves the eye too;
+  - [ ] a drag that starts on the count badge moves the eye too, and the circle comes to the pointer as the drag starts;
+  - [ ] on a notch display, a drag that starts on either wing (also the right wing's count) brings the circle to the pointer instead of trailing far from it;
   - [ ] a drag that goes back to where it started is still a drag: the panel doesn't open;
   - [ ] right-click and control-click on the eye still open its menu;
   - [ ] the open panel can't be dragged, and dragging inside it (selecting text, for example) doesn't move anything;
@@ -72,6 +73,7 @@ Start each group from the default spot and size: use **Reset Position and Size**
   - [ ] drag the eye along the top of a notch display, across the notch: it never disappears behind the notch, and dropped there it sits just beside or below it.
 - [ ] **Resize:**
   - [ ] on a trackpad, two fingers up over the eye grow it and down shrink it, smoothly, without jumps;
+  - [ ] at the default spot on a notch display, scroll over the right wing: the circle appears under the pointer and keeps resizing as you keep scrolling; the same beside the menu-bar eye, over its count;
   - [ ] with a mouse wheel, each step grows or shrinks it by about a tenth;
   - [ ] the same finger or wheel direction grows it with natural scrolling on and off (System Settings → Trackpad / Mouse);
   - [ ] lifting the fingers stops the resizing at once (momentum doesn't keep it going);
@@ -79,7 +81,7 @@ Start each group from the default spot and size: use **Reset Position and Size**
   - [ ] the count badge and its digits grow and shrink with it;
   - [ ] scrolling over the open panel scrolls its content and doesn't resize the eye;
   - [ ] scrolling elsewhere in the menu bar or in other apps is unaffected.
-- [ ] **Clicks around the eye:** at the largest size, clicks next to the circle (at the corners of its square) and in the gap between the eye and its count reach the menu bar or the app below, as they do next to the eye at the default size.
+- [ ] **Clicks around the eye:** at the largest size, clicks next to the circle (at the corners of its square) and in the gap between the eye and its count reach the menu bar or the app below; so does a scroll there. A click on the circle or the count still opens the panel. At the usual size the few points at the eye's corners stay the eye's, as before.
 - [ ] **Relaunch:** quit and start the app again. The eye is where you left it, at the same size.
 - [ ] **Several displays:**
   - [ ] move the eye, for example to the left third of the screen, half way down; activate an app on another display. The eye is at the same relative place there, at the same size relative to that display's usual eye;
@@ -104,8 +106,17 @@ Settings → **Panel opens**. Check each side with the eye moved to the middle o
   - [ ] when the content grows (a longer prompt), the panel stays on the side it opened on.
 - [ ] **No room on that side:** with the eye near the bottom edge and "below", the panel opens above; near the top and "above", below; near the left edge and "left", to the right; near the right edge and "right", to the left.
 - [ ] **No room on either side** (eye half way down, a tall prompt, "below" or "above"): the panel opens on the chosen side, moved up or down just enough to stay on the screen.
-- [ ] **Always on the screen:** in every case the panel is fully inside the screen, clear of the menu bar, the Dock and the notch.
-- [ ] **Eye in the menu bar** (resize it at the default spot, or drag it to the top): the panel opens below the menu bar; an eye fully in the menu bar stays visible above it, keeps animating, and a click on it closes the panel.
+- [ ] **Always on the screen:** in every case the panel is fully inside the screen and clear of the Dock; unless it hangs from the top of the screen (below an eye in the menu bar), it is clear of the menu bar and the notch too.
+- [ ] **Eye in the menu bar** (resize it at the default spot, or drag it to the top), also a large one reaching below the menu bar:
+  - [ ] with "below" or "above", the panel hangs from the top of the screen as before, centred on the eye (kept on the screen at its edges), square on top, content below the notch on a notch display, covering the eye;
+  - [ ] with "left" or "right", the panel opens under the menu bar beside the eye; an eye fully in the menu bar stays visible above it, keeps animating, and a click on it closes the panel.
+- [ ] **Clicks beside the open panel:** with the panel open beside an eye it doesn't cover (eye in the menu bar with "left" or "right", or an eye over the Dock):
+  - [ ] clicks in the empty space between the eye and the panel, and next to them, reach the menu bar, the Dock or the app below, and close the panel;
+  - [ ] a scroll there scrolls what is below, and a file dragged from Finder across that space can be dropped on what is below;
+  - [ ] clicks on the panel and on the eye still work as above, also right after moving the pointer quickly from the space onto them;
+  - [ ] a press in the panel (selecting text, for example) dragged out into that space and released there ends normally;
+  - [ ] while the panel opens or closes, clicks beside it are still taken as before (no click lands in another app mid-animation);
+  - [ ] Muxy Eye uses no CPU while the mouse doesn't move, and next to none while it moves.
 - [ ] **Default spot:** with "below", the panel is exactly as before: flush with the top edge, square on top, content below the notch on a notch display. With "above", it opens the same way.
 - [ ] **With a moved eye, as at the default spot:**
   - [ ] a click outside the panel closes it, and typing goes back to the app you were in;
@@ -215,7 +226,7 @@ Settings → **Panel opens**. Check each side with the eye moved to the middle o
 - [ ] **Settings:**
   - [ ] the auto-expand toggle takes effect immediately;
   - [ ] Display can be pinned to each connected display, and set back to "Follow focused app";
-  - [ ] **Panel opens** offers below (the default), above, left and right, and takes effect the next time the panel opens;
+  - [ ] **Panel opens** offers below (the default), above, left and right, and takes effect at once, also while the panel is open;
   - [ ] the hooks status matches the settings file;
   - [ ] **Launch at login:** toggling it works, or shows macOS's reason when it refuses (an ad hoc signed build may be refused);
   - [ ] **Muxy CLI path:** a path to another `muxy` binary is used at once ("Muxy found: <path>"), a path that doesn't exist falls back to automatic detection, and clearing it goes back to automatic detection;
