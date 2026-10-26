@@ -109,7 +109,8 @@ private struct SessionRailRow: View {
     }
 }
 
-/// A static, small eye: an orange ring when waiting, a line when working, a dim dot when idle.
+/// A small eye: an orange ring when waiting, the collapsed eye's moving wave when working, a dim dot
+/// when idle. The wave only runs while the panel is open.
 struct MiniEyeView: View {
     private static let size: CGFloat = 16
 
@@ -126,9 +127,8 @@ struct MiniEyeView: View {
                     .strokeBorder(PanelTheme.waiting, lineWidth: 1.8)
                     .padding(3)
             case .working:
-                Capsule()
-                    .fill(PanelTheme.line)
-                    .frame(width: Self.size * 0.55, height: 1.6)
+                SignalLineEyeView(mode: .working)
+                    .allowsHitTesting(false)
             case .idle:
                 Circle()
                     .fill(PanelTheme.line.opacity(0.35))
