@@ -177,7 +177,8 @@ struct OpenInMuxyButton: View {
 
 /// The eye's menu as a button in the expanded panel: menu-bar tools can take right clicks on the eye.
 struct PanelMenuButton: View {
-    static let width: CGFloat = 24
+    /// The whole square takes clicks, not just the three dots.
+    static let width: CGFloat = 32
 
     let model: AppModel
 
@@ -186,9 +187,9 @@ struct PanelMenuButton: View {
             EyeMenu(model: model)
         } label: {
             Image(systemName: "ellipsis")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(PanelTheme.secondaryText)
-                .frame(width: Self.width, height: 18)
+                .frame(width: Self.width, height: Self.width)
                 .contentShape(Rectangle())
         }
         .menuStyle(.borderlessButton)

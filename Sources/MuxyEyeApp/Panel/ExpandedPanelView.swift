@@ -33,9 +33,10 @@ struct ExpandedPanelView: View {
             content(revealed: revealed, motion: motion)
                 // The eye's menu, also here because menu-bar tools can take the eye's right clicks.
                 .overlay(alignment: .topTrailing) {
+                    // The dots stay where they were; the larger square around them takes the clicks.
                     PanelMenuButton(model: model)
-                        .padding(.top, 12)
-                        .padding(.trailing, 12)
+                        .padding(.top, 5)
+                        .padding(.trailing, 8)
                 }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
