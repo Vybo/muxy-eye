@@ -135,7 +135,7 @@ final class EyeWindowController: EyePresenting {
                 placement: placement,
                 contentHeight: expandedHeight)
         }
-        let topInset = EyeLayout.topInset(on: geometry, placement: placement, side: openSide)
+        let topInset = EyeLayout.topInset(on: geometry, collapsed: collapsed, placement: placement, side: openSide)
         let expanded = EyeLayout.expandedFrame(
             on: geometry,
             contentHeight: max(expandedHeight, topInset),

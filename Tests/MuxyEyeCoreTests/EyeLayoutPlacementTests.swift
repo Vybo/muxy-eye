@@ -17,6 +17,12 @@ import Testing
         frame: CGRect(x: -1920, y: 200, width: 1920, height: 1080),
         visibleFrame: CGRect(x: -1920, y: 200, width: 1920, height: 1055),
         safeAreaTop: 0, auxiliaryTopLeftWidth: nil, auxiliaryTopRightWidth: nil)
+    /// A display far below the main one, where the panel's computed top lands a hair below the
+    /// screen's top.
+    let lowered = ScreenGeometry(
+        frame: CGRect(x: 0, y: -2632.75, width: 1512, height: 982),
+        visibleFrame: CGRect(x: 0, y: -2632.75, width: 1512, height: 958),
+        safeAreaTop: 0, auxiliaryTopLeftWidth: nil, auxiliaryTopRightWidth: nil)
 
     let middle = EyePlacement(position: CGPoint(x: 0.5, y: 0.5))
     let quarter = EyePlacement(position: CGPoint(x: 0.25, y: 0.5))
@@ -179,8 +185,19 @@ import Testing
             let today = EyeLayout.expandedFrame(on: screen, contentHeight: 300)
             #expect(EyeLayout.expandedOutline(today, on: screen) == EyeLayout.expandedOutline(today))
         }
-        #expect(EyeLayout.topInset(on: mbp14, placement: .standard, side: .below) == 32)
-        #expect(EyeLayout.topInset(on: ultrawide, placement: .standard, side: .below) == 0)
+        let notch = EyeLayout.collapsed(on: mbp14, waitingCount: 0)
+        #expect(EyeLayout.topInset(on: mbp14, collapsed: notch, placement: .standard, side: .below) == 32)
+        let plain = EyeLayout.collapsed(on: ultrawide, waitingCount: 0)
+        #expect(EyeLayout.topInset(on: ultrawide, collapsed: plain, placement: .standard, side: .below) == 0)
+    }
+
+    @Test func thePanelAtTheTopIsSquareOnTopOnEveryDisplay() {
+        for screen in screens + [lowered] {
+            for height in [150, 300, 5000] as [CGFloat] {
+                let frame = EyeLayout.expandedFrame(on: screen, contentHeight: height)
+                #expect(EyeLayout.expandedOutline(frame, on: screen) == EyeLayout.expandedOutline(frame))
+            }
+        }
     }
 
     @Test func atTheDefaultSpotAPanelAboveOpensBelowAsBefore() {
@@ -202,9 +219,11 @@ import Testing
         #expect(frame(.above) == CGRect(x: 1400, y: 709.5, width: 640, height: 300))
         #expect(frame(.left) == CGRect(x: 1090.5, y: 570, width: 640, height: 300))
         #expect(frame(.right) == CGRect(x: 1709.5, y: 570, width: 640, height: 300))
+        let notch = EyeLayout.collapsed(on: mbp14, waitingCount: 0, placement: middle)
         for side in PanelSide.allCases {
             #expect(EyeLayout.openingSide(side, on: ultrawide, collapsed: collapsed, placement: middle, contentHeight: 300) == side)
-            #expect(EyeLayout.topInset(on: mbp14, placement: middle, side: side) == 0)
+            #expect(EyeLayout.topInset(on: mbp14, collapsed: notch, placement: middle, side: side) == 0)
+            #expect(EyeLayout.hangsFromTop(on: ultrawide, collapsed: collapsed, placement: middle, side: side) == false)
             #expect(EyeLayout.panel(frame(side), covers: collapsed))
         }
     }
@@ -261,7 +280,14 @@ import Testing
                             wanted, on: screen, collapsed: collapsed, placement: placement, contentHeight: height)
                         let frame = EyeLayout.expandedFrame(
                             on: screen, contentHeight: height, collapsed: collapsed, placement: placement, side: side)
-                        if !screen.visibleFrame.contains(frame) { outside.append("\(placement) \(wanted) \(height)") }
+                        // A panel hanging from the top covers the menu bar, as it always did.
+                        let hangs = EyeLayout.hangsFromTop(on: screen, collapsed: collapsed, placement: placement, side: side)
+                        let visible = screen.visibleFrame
+                        let inside = hangs
+                            ? frame.maxY == screen.frame.maxY && frame.minY >= visible.minY
+                                && frame.minX >= visible.minX && frame.maxX <= visible.maxX
+                            : visible.contains(frame)
+                        if !inside { outside.append("\(placement) \(wanted) \(height)") }
                     }
                 }
             }
@@ -269,21 +295,71 @@ import Testing
         #expect(outside.isEmpty)
     }
 
-    @Test func aPanelBelowAnEyeInTheMenuBarOpensUnderTheMenuBar() {
+    @Test func belowAnEyeInTheMenuBarThePanelHangsFromTheTopAsBefore() {
+        // Resized at the default spot: centred on the eye, which is at the top centre.
         let smaller = EyePlacement(scale: 0.8)
-        let collapsed = EyeLayout.collapsed(on: ultrawide, waitingCount: 0, placement: smaller)
+        let plain = EyeLayout.collapsed(on: ultrawide, waitingCount: 0, placement: smaller)
         let frame = EyeLayout.expandedFrame(
-            on: ultrawide, contentHeight: 300, collapsed: collapsed, placement: smaller, side: .below)
-        #expect(frame == CGRect(x: 1400, y: 1115, width: 640, height: 300))
-        // The eye stays above it, uncovered.
-        #expect(EyeLayout.panel(frame, covers: collapsed) == false)
+            on: ultrawide, contentHeight: 300, collapsed: plain, placement: smaller, side: .below)
+        #expect(frame == EyeLayout.expandedFrame(on: ultrawide, contentHeight: 300))
+        #expect(EyeLayout.hangsFromTop(on: ultrawide, collapsed: plain, placement: smaller, side: .below))
+        #expect(EyeLayout.panel(frame, covers: plain))
+        #expect(EyeLayout.expandedOutline(frame, on: ultrawide).topRadius == 0)
+        #expect(EyeLayout.topInset(on: ultrawide, collapsed: plain, placement: smaller, side: .below) == 0)
 
+        // Larger on the notch display: centred on the eye left of the notch, content below the notch.
         let bigger = EyePlacement(scale: 2)
         let notch = EyeLayout.collapsed(on: mbp14, waitingCount: 0, placement: bigger)
-        let underNotch = EyeLayout.expandedFrame(
+        let hanging = EyeLayout.expandedFrame(
             on: mbp14, contentHeight: 300, collapsed: notch, placement: bigger, side: .below)
-        #expect(underNotch.maxY == 950)
-        #expect(EyeLayout.topInset(on: mbp14, placement: bigger, side: .below) == 0)
+        #expect(hanging == CGRect(x: 318, y: 682, width: 640, height: 300))
+        #expect(EyeLayout.topInset(on: mbp14, collapsed: notch, placement: bigger, side: .below) == 32)
+        #expect(EyeLayout.panel(hanging, covers: notch))
+
+        // Dragged into the menu bar's corner: it hangs at the screen's edge.
+        let corner = EyePlacement(position: CGPoint(x: 0, y: 1))
+        let cornerEye = EyeLayout.collapsed(on: ultrawide, waitingCount: 0, placement: corner)
+        let atCorner = EyeLayout.expandedFrame(
+            on: ultrawide, contentHeight: 300, collapsed: cornerEye, placement: corner, side: .below)
+        #expect(atCorner == CGRect(x: 0, y: 1140, width: 640, height: 300))
+        #expect(EyeLayout.panel(atCorner, covers: cornerEye))
+        // There is no room above it, so above hangs below too.
+        #expect(EyeLayout.openingSide(.above, on: ultrawide, collapsed: cornerEye, placement: corner, contentHeight: 300) == .below)
+    }
+
+    @Test func aLargeEyeReachingIntoTheMenuBarCountsAsInIt() {
+        // 63 pt tall, with its top at the top of the screen.
+        let large = EyePlacement(position: CGPoint(x: 0.25, y: 1), scale: 3)
+        let collapsed = EyeLayout.collapsed(on: ultrawide, waitingCount: 0, placement: large)
+        #expect(EyeLayout.hangsFromTop(on: ultrawide, collapsed: collapsed, placement: large, side: .below))
+        let frame = EyeLayout.expandedFrame(
+            on: ultrawide, contentHeight: 300, collapsed: collapsed, placement: large, side: .below)
+        #expect(frame.maxY == 1440)
+        #expect(EyeLayout.panel(frame, covers: collapsed))
+    }
+
+    @Test func justBelowTheNotchThePanelOpensUnderTheEye() {
+        // Dropped on the notch, the eye sits right under it, out of the menu bar.
+        let onNotch = EyePlacement(position: CGPoint(x: 0.5, y: 1))
+        let collapsed = EyeLayout.collapsed(on: mbp14, waitingCount: 0, placement: onNotch)
+        #expect(EyeLayout.hangsFromTop(on: mbp14, collapsed: collapsed, placement: onNotch, side: .below) == false)
+        let frame = EyeLayout.expandedFrame(
+            on: mbp14, contentHeight: 300, collapsed: collapsed, placement: onNotch, side: .below)
+        #expect(frame == CGRect(x: 436, y: 650, width: 640, height: 300))
+        #expect(EyeLayout.panel(frame, covers: collapsed))
+        #expect(EyeLayout.expandedOutline(frame, on: mbp14).topRadius == EyeLayout.panelCornerRadius)
+    }
+
+    @Test func besideAnEyeInTheMenuBarThePanelOpensUnderTheMenuBar() {
+        let smaller = EyePlacement(scale: 0.8)
+        let collapsed = EyeLayout.collapsed(on: ultrawide, waitingCount: 0, placement: smaller)
+        for side in [PanelSide.left, .right] {
+            #expect(EyeLayout.hangsFromTop(on: ultrawide, collapsed: collapsed, placement: smaller, side: side) == false)
+            let frame = EyeLayout.expandedFrame(
+                on: ultrawide, contentHeight: 300, collapsed: collapsed, placement: smaller, side: side)
+            #expect(frame.maxY == 1415)
+            #expect(EyeLayout.panel(frame, covers: collapsed) == false)
+        }
     }
 
     @Test func thePanelIsKeptClearOfTheNotchWhenTheMenuBarHides() {

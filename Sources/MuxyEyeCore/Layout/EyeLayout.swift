@@ -91,7 +91,7 @@ public enum EyeLayout {
     public static let panelCornerRadius: CGFloat = 22
 
     static let badgeGap: CGFloat = 4
-    private static let fallbackMenuBarHeight: CGFloat = 24
+    static let fallbackMenuBarHeight: CGFloat = 24
 
     public static func collapsed(on screen: ScreenGeometry, waitingCount: Int) -> CollapsedLayout {
         screen.hasNotch ? notchLayout(screen, waitingCount: waitingCount) : plainLayout(screen, waitingCount: waitingCount)

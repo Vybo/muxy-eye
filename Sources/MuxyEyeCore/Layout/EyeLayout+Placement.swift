@@ -74,8 +74,9 @@ extension EyeLayout {
 
     /// The panel on `side` of the eye. It grows out of the eye: the edge facing away from `side`
     /// lines up with the eye's, and the panel is centred on the eye along that edge. It stays inside
-    /// the visible frame, clear of the menu bar, the Dock and the notch. At the default spot below,
-    /// it is the panel at the top of the screen.
+    /// the visible frame, clear of the menu bar, the Dock and the notch. Below an eye in the menu bar
+    /// it hangs from the top of the screen instead, as it always did: at the default spot exactly as
+    /// before, elsewhere centred on the eye.
     public static func expandedFrame(
         on screen: ScreenGeometry,
         contentHeight: CGFloat,
@@ -83,9 +84,15 @@ extension EyeLayout {
         placement: EyePlacement,
         side: PanelSide
     ) -> CGRect {
-        if opensFromTheTop(placement, side) { return expandedFrame(on: screen, contentHeight: contentHeight) }
-        let size = panelSize(on: screen, contentHeight: contentHeight)
         let eye = collapsed.onScreen(collapsed.eyeFrame)
+        if hangsFromTop(on: screen, collapsed: collapsed, placement: placement, side: side) {
+            let hanging = expandedFrame(on: screen, contentHeight: contentHeight)
+            guard placement.isCustomized else { return hanging }
+            let bounds = screen.visibleFrame
+            let x = max(bounds.minX, min(eye.midX - hanging.width / 2, bounds.maxX - hanging.width))
+            return CGRect(x: x, y: hanging.minY, width: hanging.width, height: hanging.height)
+        }
+        let size = panelSize(on: screen, contentHeight: contentHeight)
         let origin = switch side {
         case .below: CGPoint(x: eye.midX - size.width / 2, y: eye.maxY - size.height)
         case .above: CGPoint(x: eye.midX - size.width / 2, y: eye.minY)
@@ -95,16 +102,38 @@ extension EyeLayout {
         return clamp(CGRect(origin: origin, size: size), into: panelBounds(on: screen))
     }
 
-    /// Room left at the top of the panel for the physical notch: only the panel at the top of the
-    /// screen reaches it.
-    public static func topInset(on screen: ScreenGeometry, placement: EyePlacement, side: PanelSide) -> CGFloat {
-        opensFromTheTop(placement, side) && screen.hasNotch ? screen.safeAreaTop : 0
+    /// Whether the panel on `side` hangs from the top of the screen, as it always did: below the eye
+    /// at its default spot, or below an eye anywhere in the menu bar (the notch's height on a notch
+    /// display), at any size.
+    public static func hangsFromTop(
+        on screen: ScreenGeometry,
+        collapsed: CollapsedLayout,
+        placement: EyePlacement,
+        side: PanelSide
+    ) -> Bool {
+        guard side == .below else { return false }
+        guard placement.isCustomized else { return true }
+        let eye = collapsed.onScreen(collapsed.eyeFrame)
+        return eye.maxY - (screen.frame.maxY - topBandHeight(on: screen)) > edgeTolerance
+    }
+
+    /// Room left at the top of the panel for the physical notch: only a panel hanging from the top
+    /// of the screen reaches it.
+    public static func topInset(
+        on screen: ScreenGeometry,
+        collapsed: CollapsedLayout,
+        placement: EyePlacement,
+        side: PanelSide
+    ) -> CGFloat {
+        let hangs = hangsFromTop(on: screen, collapsed: collapsed, placement: placement, side: side)
+        return hangs && screen.hasNotch ? screen.safeAreaTop : 0
     }
 
     /// The panel's black shape: square on top where it hangs from the top of the screen, rounded
     /// everywhere else.
     public static func expandedOutline(_ frame: CGRect, on screen: ScreenGeometry) -> EyeOutline {
-        let hangs = frame.maxY >= screen.frame.maxY
+        // The hanging panel's top is computed from its height, so it can miss the screen's top by a hair.
+        let hangs = frame.maxY >= screen.frame.maxY - edgeTolerance
         return EyeOutline(frame: frame, topRadius: hangs ? 0 : panelCornerRadius, bottomRadius: panelCornerRadius)
     }
 
@@ -145,9 +174,18 @@ extension EyeLayout {
 
     // MARK: Helpers
 
-    /// The panel hangs from the top of the screen, as it always did, only below the eye at its default spot.
+    /// Closer than this, in points, two edges count as one.
+    private static let edgeTolerance: CGFloat = 0.5
+
+    /// The eye at its default spot with the panel below: the stage and the margins are exactly as before.
     private static func opensFromTheTop(_ placement: EyePlacement, _ side: PanelSide) -> Bool {
         !placement.isCustomized && side == .below
+    }
+
+    /// The band at the top of the screen that the menu bar, or the notch, takes.
+    private static func topBandHeight(on screen: ScreenGeometry) -> CGFloat {
+        let measured = screen.frame.maxY - screen.visibleFrame.maxY
+        return max(screen.safeAreaTop, measured > 0 ? measured : fallbackMenuBarHeight)
     }
 
     private static func panelSize(on screen: ScreenGeometry, contentHeight: CGFloat) -> CGSize {
@@ -170,7 +208,7 @@ extension EyeLayout {
         placement: EyePlacement,
         contentHeight: CGFloat
     ) -> Bool {
-        if opensFromTheTop(placement, side) { return true }
+        if hangsFromTop(on: screen, collapsed: collapsed, placement: placement, side: side) { return true }
         let bounds = panelBounds(on: screen)
         let size = panelSize(on: screen, contentHeight: contentHeight)
         let eye = collapsed.onScreen(collapsed.eyeFrame)
