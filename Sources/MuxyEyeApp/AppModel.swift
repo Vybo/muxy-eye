@@ -558,11 +558,19 @@ final class AppModel {
     // MARK: Helpers
 
     /// Brings the Muxy app forward: the running copy if there is one, else the installed Stable or Beta app.
+    /// A running Muxy is activated with all its windows, which takes the user to its Space. `muxy <folder>`
+    /// has usually made it the active app already, without leaving the current Space, so asking
+    /// NSWorkspace to open it again changes nothing.
     private func bringMuxyForward() {
         let workspace = NSWorkspace.shared
-        let running = workspace.runningApplications.first { Self.isMuxy($0) }?.bundleURL
+        if let running = workspace.runningApplications.first(where: { Self.isMuxy($0) }) {
+            if !running.activate(options: [.activateAllWindows]) {
+                Self.log.error("Activating Muxy failed")
+            }
+            return
+        }
         let installed = Self.muxyAppBundleIDs.lazy.compactMap { workspace.urlForApplication(withBundleIdentifier: $0) }.first
-        guard let url = running ?? installed else {
+        guard let url = installed else {
             Self.log.error("Muxy app not found")
             return
         }
