@@ -34,7 +34,7 @@ struct PermissionDetailView: View {
                 }
             }
             if let detail = request.detail, !detail.isEmpty {
-                Text(verbatim: detail)
+                InlineMarkdown.text(detail, fontSize: 12)
                     .font(.system(size: 12))
                     .foregroundStyle(PanelTheme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)

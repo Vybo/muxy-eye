@@ -34,7 +34,7 @@ struct QuestionDetailView: View {
             // swapped: the controls stay, so a field that has focus keeps it.
             ZStack(alignment: .topLeading) {
                 if let shown {
-                    Text(verbatim: shown.question)
+                    InlineMarkdown.text(shown.question, fontSize: 13)
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(PanelTheme.text)
                         .fixedSize(horizontal: false, vertical: true)

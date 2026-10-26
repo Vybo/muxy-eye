@@ -51,11 +51,15 @@ struct AssistantMessageView: View {
 
     var body: some View {
         CappedScrollView(maxHeight: maxHeight) {
-            Text(verbatim: message ?? "Claude finished its turn.")
-                .font(.system(size: 12.5))
-                .foregroundStyle(message == nil ? PanelTheme.secondaryText : PanelTheme.text)
-                .textSelection(.enabled)
-                .fixedSize(horizontal: false, vertical: true)
+            if let message {
+                MarkdownMessageView(message)
+            } else {
+                Text(verbatim: "Claude finished its turn.")
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(PanelTheme.secondaryText)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .padding(10)
         .background(PanelTheme.card, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
