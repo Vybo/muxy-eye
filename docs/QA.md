@@ -74,6 +74,7 @@ Start each group from the default spot and size: use **Reset Position and Size**
 - [ ] **Resize:**
   - [ ] on a trackpad, two fingers up over the eye grow it and down shrink it, smoothly, without jumps;
   - [ ] at the default spot on a notch display, scroll over the right wing: the circle appears under the pointer and keeps resizing as you keep scrolling; the same beside the menu-bar eye, over its count;
+  - [ ] scroll over the middle of the notch itself: the eye resizes once and appears beside or below the notch (it can't sit behind it), so further scrolling there goes to what's below — expected;
   - [ ] with a mouse wheel, each step grows or shrinks it by about a tenth;
   - [ ] the same finger or wheel direction grows it with natural scrolling on and off (System Settings → Trackpad / Mouse);
   - [ ] lifting the fingers stops the resizing at once (momentum doesn't keep it going);
@@ -81,7 +82,8 @@ Start each group from the default spot and size: use **Reset Position and Size**
   - [ ] the count badge and its digits grow and shrink with it;
   - [ ] scrolling over the open panel scrolls its content and doesn't resize the eye;
   - [ ] scrolling elsewhere in the menu bar or in other apps is unaffected.
-- [ ] **Clicks around the eye:** at the largest size, clicks next to the circle (at the corners of its square) and in the gap between the eye and its count reach the menu bar or the app below; so does a scroll there. A click on the circle or the count still opens the panel. At the usual size the few points at the eye's corners stay the eye's, as before.
+- [ ] **Clicks around the eye:** at the largest size, clicks next to the circle (at the corners of its square) and in the gap between the eye and its count reach the menu bar or the app below; so does a scroll there. 
+  - [ ] with Settings open in front (Muxy Eye active), move the pointer off a large eye and back onto it, then click it: the click still opens the panel (the eye takes clicks again as soon as the pointer is back on it).A click on the circle or the count still opens the panel. At the usual size the few points at the eye's corners stay the eye's, as before.
 - [ ] **Relaunch:** quit and start the app again. The eye is where you left it, at the same size.
 - [ ] **Several displays:**
   - [ ] move the eye, for example to the left third of the screen, half way down; activate an app on another display. The eye is at the same relative place there, at the same size relative to that display's usual eye;
