@@ -28,8 +28,24 @@ final class EyePanel: NSPanel {
     /// Scrolling over the collapsed eye, which resizes it.
     var onEyeScroll: ((NSEvent) -> Void)?
 
+    /// The shapes that take clicks while the window rests with room around them that must let clicks
+    /// through to what is below (see `ClickThrough`); nil when the window is all shape, and while
+    /// things move, when the window takes every click as it always did.
+    var clickThroughOutlines: [EyeOutline]? {
+        didSet {
+            guard clickThroughOutlines != oldValue else { return }
+            clickThroughChanged()
+        }
+    }
+
     /// The left button went down on the eye and hasn't come up yet.
     private var pressesEye = false
+    /// The left button went down in this window, on the eye or the panel, and hasn't come up yet.
+    private var pressedHere = false
+    /// While clicks may pass through, these follow the pointer: a global monitor for the events that
+    /// go to other apps, a local one with a tracking area for those over this window.
+    private var pointerMonitors: [Any] = []
+    private var pointerTracking: NSTrackingArea?
 
     /// Called for a click in the window but outside the expanded panel's outline: in the window's margin
     /// while the panel animates, or at rest in the transparent rounded bottom corners. Clicks outside
@@ -76,6 +92,13 @@ final class EyePanel: NSPanel {
     /// beside the panel (in the window's margin while it animates) neither takes the keyboard nor
     /// reaches the content: it counts as a click outside.
     override func sendEvent(_ event: NSEvent) {
+        if event.type == .leftMouseDown { pressedHere = true }
+        defer {
+            if event.type == .leftMouseUp {
+                pressedHere = false
+                followPointer()
+            }
+        }
         if takesEyeEvent(event) { return }
         if isExpanded, event.type == .leftMouseDown {
             let point = convertPoint(toScreen: event.locationInWindow)
@@ -114,5 +137,53 @@ final class EyePanel: NSPanel {
         default:
             return false
         }
+    }
+
+    // MARK: Clicks through the window
+
+    private func clickThroughChanged() {
+        if clickThroughOutlines == nil {
+            stopFollowingPointer()
+        } else if pointerMonitors.isEmpty {
+            startFollowingPointer()
+        }
+        followPointer()
+    }
+
+    /// Lets the mouse through the window wherever the pointer is off its shapes. A press that went
+    /// down in this window keeps the mouse until it is released, so a drag that started here, on the
+    /// eye or in the panel, gets its release; one whose release never arrived doesn't hold on to it.
+    private func followPointer() {
+        let held = pressedHere && NSEvent.pressedMouseButtons & 1 != 0
+        let through = clickThroughOutlines.map { !held && !ClickThrough.hits(NSEvent.mouseLocation, $0) } ?? false
+        if ignoresMouseEvents != through { ignoresMouseEvents = through }
+    }
+
+    private func startFollowingPointer() {
+        let global = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged]) { [weak self] _ in
+            MainActor.assumeIsolated { self?.followPointer() }
+        }
+        let local = NSEvent.addLocalMonitorForEvents(matching: .mouseMoved) { [weak self] event in
+            MainActor.assumeIsolated { self?.followPointer() }
+            return event
+        }
+        pointerMonitors = [global, local].compactMap { $0 }
+        // The window isn't key, so it gets the pointer's moves only through a tracking area.
+        if let view = contentView {
+            let tracking = NSTrackingArea(
+                rect: .zero,
+                options: [.mouseMoved, .activeAlways, .inVisibleRect],
+                owner: view,
+                userInfo: nil)
+            view.addTrackingArea(tracking)
+            pointerTracking = tracking
+        }
+    }
+
+    private func stopFollowingPointer() {
+        for monitor in pointerMonitors { NSEvent.removeMonitor(monitor) }
+        pointerMonitors = []
+        if let pointerTracking { contentView?.removeTrackingArea(pointerTracking) }
+        pointerTracking = nil
     }
 }

@@ -44,6 +44,8 @@ final class EyeWindowController: EyePresenting {
     private var press: EyeDrag?
     /// Where a dragged eye is now; it is saved once the eye is dropped.
     private var draggedPlacement: EyePlacement?
+    /// Whether the window at rest last had room for clicks to pass, for the frame and shapes it had.
+    private var clickThrough: ClickThroughCheck?
     /// The waiting count the eye shows, to notice when its badge pops.
     private var waitingCount = 0
     /// Room around the panel's shape for its spring's overshoot while it opens or closes, on the
@@ -82,6 +84,7 @@ final class EyeWindowController: EyePresenting {
     func hide(for duration: Duration) {
         hiddenTask?.cancel()
         events.stop()
+        panel.clickThroughOutlines = nil
         panel.orderOut(nil)
         hiddenTask = Task { [weak self] in
             do { try await Task.sleep(for: duration) } catch { return }
@@ -324,6 +327,7 @@ final class EyeWindowController: EyePresenting {
         panel.eyeHandles = stage.phase == .collapsed ? EyeLayout.grabOutlines(stage.collapsed) : []
         let stageFrame = stage.frame
         let frame = window.frame(within: stageFrame)
+        updateClickThrough(in: frame)
         let placement = CGRect(
             x: stageFrame.minX - frame.minX,
             y: frame.maxY - stageFrame.maxY,
@@ -335,6 +339,21 @@ final class EyeWindowController: EyePresenting {
         hostingView.frame = placement
         panel.setFrame(frame, display: true)
         if panel.showsShadow { panel.invalidateShadow() }
+    }
+
+    /// At rest, room in the window beside its shapes lets clicks through to what is below. While
+    /// shapes move, and while the eye is hidden, the window takes every click, as it always did.
+    private func updateClickThrough(in frame: CGRect) {
+        let resting = stage.phase == .collapsed || stage.phase == .expanded
+        guard resting, !window.isMoving, hiddenTask == nil else {
+            panel.clickThroughOutlines = nil
+            return
+        }
+        let outlines = EyeLayout.clickOutlines(stage.collapsed, expanded: stage.phase == .expanded ? stage.expandedFrame : nil)
+        let check = clickThrough.flatMap { $0.frame == frame && $0.outlines == outlines ? $0 : nil }
+            ?? ClickThroughCheck(frame: frame, outlines: outlines, hasGap: ClickThrough.hasGap(in: frame, around: outlines))
+        clickThrough = check
+        panel.clickThroughOutlines = check.hasGap ? outlines : nil
     }
 
     /// The expanded panel reports its height from inside a SwiftUI update, so the resize waits a turn.
@@ -550,4 +569,12 @@ extension ScreenGeometry {
             auxiliaryTopRightWidth: screen.auxiliaryTopRightArea?.width
         )
     }
+}
+
+/// Whether the window at rest had room for clicks to pass, for one frame and set of shapes, so the
+/// window doesn't look for it again while neither changes.
+private struct ClickThroughCheck {
+    let frame: CGRect
+    let outlines: [EyeOutline]
+    let hasGap: Bool
 }
