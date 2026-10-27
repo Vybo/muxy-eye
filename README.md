@@ -6,7 +6,63 @@ Muxy Eye is a small macOS app that sits at the top center of your screen, styled
   <img src="docs/images/panel-approval.png" width="640" alt="The expanded Muxy Eye panel: a session rail on the left and a Bash approval for npm test on the right, with the numbered options Claude offers">
 </p>
 
-<sub>The screenshots on this page come from a demo setup: sample projects, a separate Muxy profile, and a demo Claude settings file.</sub>
+<sub>The screenshots on this page come from a demo setup with sample projects.</sub>
+
+## Getting started
+
+This walks you through building Muxy Eye, setting it up, and answering your first prompt from it. It takes about five minutes.
+
+### 1. Check what you need
+
+- macOS 14 Sonoma or later.
+- [Muxy](https://github.com/muxy-app/muxy) 2.x.
+- Claude Code, running inside Muxy terminals.
+- Xcode 26, or a Swift 6.2 toolchain or later, to build the app.
+
+### 2. Build and start the app
+
+```sh
+git clone https://github.com/Vybo/muxy-eye.git
+cd muxy-eye
+scripts/build-app.sh release
+open "build/Muxy Eye.app"
+```
+
+The script prints the path of the app it built. You can move `Muxy Eye.app` to `/Applications` first if you like; nothing depends on where it is.
+
+### 3. Go through the setup window
+
+On first launch a short setup window opens (see [Setup](#setup) for every detail):
+
+1. Check that **Muxy** shows where the `muxy` CLI is, and its version. If it says it can't find Muxy, set the path later in Settings.
+2. Press **Install** next to **Claude hooks**. This adds Muxy Eye's hooks to Claude Code's settings, so the eye can show what Claude is asking. A backup of your settings file is saved next to it first.
+3. Turn on **Launch at login** if you want the eye every time you log in.
+4. Press **Done**.
+
+Claude sessions that were already running pick up the hooks after a restart, or after you open `/hooks` in them once. New sessions have them right away.
+
+### 4. Answer your first prompt
+
+1. In Muxy, start Claude Code in any project and ask it to do something that needs your approval, for example: *run `ls` with the Bash tool*.
+2. Switch to any other app, the way you would while Claude works. Within about a second, the eye at the top of the screen turns into an orange ring.
+3. Click the eye. The panel opens: the session's row on the left says `approval`, and on the right are the command and Claude's numbered options.
+4. Click **Yes**, or press **1**. Muxy Eye checks that the terminal still shows the same prompt and types the answer into it. Once nothing else is waiting, the panel closes by itself.
+
+Questions work the same way: pick an option, or type your own answer. When Claude finishes a turn, the panel shows its last message; reply from there, or press **Dismiss**.
+
+The terminal keeps working as usual. Answer wherever is closer; whichever place answers first wins, and the other one notices.
+
+### 5. Make it yours
+
+- **Move the eye:** drag it anywhere on the screen. **Resize it:** scroll over it. **Reset:** right-click it (or use the panel's **⋯** button) and choose **Reset Position and Size**.
+- **Pick where the panel opens:** Settings → **Panel opens**: below, above, left or right of the eye.
+- **Let it open by itself:** Settings → **Expand automatically when an agent needs you**. It never takes the keyboard, so typing elsewhere is safe.
+- **Keep it on one display:** Settings → **Display**.
+- **Need quiet?** Right-click the eye → **Hide for 1 Hour**.
+
+<p align="center">
+  <img src="docs/images/eye-moved.png" width="717" alt="A moved, enlarged eye with a count of 2, and the panel open to its right, a few points away">
+</p>
 
 ## The eye
 
@@ -83,7 +139,7 @@ The options are shown only while the terminal shows that same prompt. If the pro
 When Claude asks a question (its `AskUserQuestion` tool), the panel shows the question with its options and their descriptions.
 
 <p align="center">
-  <img src="docs/images/panel-question.png" width="640" alt="A single-select question in the panel: three options with descriptions and a Type something else field">
+  <img src="docs/images/panel-question.png" width="640" alt="A single-select question in the panel, Which database should the new service use?, with three options with descriptions and a Type something else field">
 </p>
 
 - **Single-select:** pick an option, or type your own answer in **Type something else…**.
@@ -92,10 +148,12 @@ When Claude asks a question (its `AskUserQuestion` tool), the panel shows the qu
 
 ### Finished turns
 
-When Claude finishes a turn, the session waits until you have seen the result. The panel shows Claude's last message. Reply in **Reply to Claude…**, or press **Dismiss** to clear it.
+When Claude finishes a turn, the session waits until you have seen the result. The panel shows Claude's last message with its formatting: headings, bold and italic text, inline code and code blocks, lists and links. Only `http` and `https` links open, in your browser. Reply in **Reply to Claude…**, or press **Dismiss** to clear it.
+
+Questions, their options and an approval's description show bold, italic and inline code too. Commands and file paths are shown exactly as Claude sent them. A long prompt that doesn't fit in the panel scrolls.
 
 <p align="center">
-  <img src="docs/images/panel-finished.png" width="640" alt="A finished turn in the panel: Claude's last message, a Reply to Claude field with Send, and Dismiss">
+  <img src="docs/images/panel-finished.png" width="640" alt="A finished turn in the panel: Claude's last message with a heading, bold text, inline code, a list and a link, then a Reply to Claude field with Send, and Dismiss">
 </p>
 
 A finished turn also clears when you look at that pane in Muxy, or when you send Claude a new prompt from the terminal.
@@ -200,12 +258,16 @@ The helper does nothing for Claude sessions outside Muxy. It never prints anythi
 ## Settings
 
 <p align="center">
-  <img src="docs/images/settings.png" width="480" alt="The Settings window: auto-expand, display, launch at login, the Claude hooks status with Remove, and the Muxy CLI path and profile folder. The Panel opens row, under Display, came later and isn't in this picture">
+  <img src="docs/images/settings.png" width="480" alt="The Settings window: auto-expand, display, panel side, launch at login, the Claude hooks status with Remove, and the Muxy CLI path and profile folder">
 </p>
 
 - **Expand automatically when an agent needs you:** see [Auto-expand](#auto-expand).
 - **Display:** follow the focused app, or pin the eye to one display.
-- **Panel opens:** below the eye (the default), above it, or to its left or right. If the panel has no room on that side, it opens on the opposite side, and it is always kept fully on the screen, clear of the Dock, and clear of the menu bar and the notch unless it hangs from the top of the screen. Below an eye in the menu bar (at its default spot, or moved or resized there), the panel hangs from the top of the screen as before, square on top and, on a notch display, with its content below the notch; above opens it there too, since there is no room above such an eye. Everywhere else the panel opens beside the eye, a few points from it and its count: it grows out of the eye and pulls back into it, and the eye stays visible, with its line and count, while the panel opens, is open and closes. Clicking the eye closes the panel, and clicks in the room between the two go to whatever is below. Below or above, when neither side has room for the whole panel, it opens on the roomier side, only as tall as the room there (its content scrolls), down to 160 points; only with less room than that is it moved over the eye. When a panel does cover a moved eye, also one hanging from the top, the eye's line and count come back as soon as the panel starts pulling back into it, so the eye never disappears while the panel closes.
+- **Panel opens:** below the eye (the default), above it, or to its left or right.
+  - If the panel has no room on that side, it opens on the opposite side. It is always kept fully on the screen and clear of the Dock, and also clear of the menu bar and the notch, unless it hangs from the top of the screen.
+  - Below an eye in the menu bar (at its default spot, or moved or resized there), the panel hangs from the top of the screen as before: square on top and, on a notch display, with its content below the notch. "Above" opens it there too, since there is no room above such an eye.
+  - Everywhere else the panel opens beside the eye, a few points from it and its count. It grows out of the eye and pulls back into it, and the eye stays visible while the panel opens, is open and closes. Clicking the eye closes the panel, and clicks in the room between the two go to whatever is below.
+  - Below or above, when neither side has room for the whole panel, it opens on the roomier side, only as tall as the room there, down to 160 points, and its prompt scrolls. Only with less room than that is it moved over the eye. When the panel does cover a moved eye, the eye's line and count come back as soon as the panel starts pulling back into it.
 - **Launch at login:** if macOS refuses, the reason appears under the toggle.
 - **Claude hooks:** the settings file in use, the hooks' status, and Install, Update or Remove.
 - **Muxy CLI path:** set it if Muxy Eye can't find `muxy` by itself.
@@ -229,6 +291,7 @@ Path changes apply when you press Return or leave the field. You can also open S
 - **A draft at Claude's prompt can look empty.** Suppose you typed a draft at Claude's prompt and moved the cursor back to the start of the line. Muxy Eye can't tell that apart from Claude's grey prompt suggestion, so a reply from the eye would be typed in front of your draft.
 - **Prompt content is for Claude Code only.** Other agents in Muxy show their state, but not their prompts.
 - **Only sessions in Muxy terminals on this Mac are covered.** Claude sessions outside Muxy, and remote Muxy servers (`muxy --host`), are not covered.
+- **A question that contains "Ready to submit your answers?"** is taken for Claude's review screen, so the eye shows it without options. Answer it in the terminal.
 - **Some prompt layouts can't be read.** If a Claude Code update changes how prompts look in the terminal, Muxy Eye can't read the options any more. Those prompts then show only Open in Muxy, rather than risk a wrong answer.
 
 ## Uninstall
