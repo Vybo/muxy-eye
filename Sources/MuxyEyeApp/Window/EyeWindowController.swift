@@ -26,6 +26,7 @@ final class EyeWindowController: EyePresenting {
     private let model: AppModel
     private let settings: AppSettings
     private let panel = EyePanel()
+    private let handback = KeyboardHandbackPanel()
     private let stage: EyeStage
     private let hostingView: EyeHostingView
     private let events = PanelEventMonitor()
@@ -111,11 +112,8 @@ final class EyeWindowController: EyePresenting {
             if focus { panel.makeKey() }
         } else {
             events.stop()
-            if wasKey {
-                // Hand the keyboard back to the app the user was in.
-                panel.orderOut(nil)
-                panel.orderFrontRegardless()
-            }
+            // Hand the keyboard back to the app the user was in, with the eye still on screen.
+            if wasKey { handback.handBack(from: panel) }
         }
     }
 

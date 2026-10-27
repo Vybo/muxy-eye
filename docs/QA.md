@@ -137,6 +137,11 @@ Settings → **Panel opens**. Check each side with the eye moved to the middle o
   - [ ] auto-expand opens the panel without taking the keyboard;
   - [ ] clicking the eye again while the panel closes, or closing it while it opens, turns the animation around smoothly;
   - [ ] with Reduce Motion on, the panel fades in and out on its side instead of growing.
+- [ ] **Closing without a flash,** at the default spot and with a moved eye: open the panel with a click, then close it with Esc, with a click outside, and by answering a prompt:
+  - [ ] neither the panel nor the eye vanishes for a moment as the panel starts to close, also over a dark window; the close animation starts from the open panel;
+  - [ ] afterwards, typing goes to the app that was in front;
+  - [ ] the same with Settings open behind another app: Settings doesn't come forward or take the keyboard;
+  - [ ] the same after auto-expand opened the panel and you clicked into it. Closed without a click in it, the panel never had the keyboard, and the app in front keeps it.
 
 ## The expanded panel
 

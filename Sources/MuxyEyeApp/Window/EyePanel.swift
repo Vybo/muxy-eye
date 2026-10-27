@@ -13,6 +13,10 @@ final class EyePanel: NSPanel {
     /// Expanded or expanding: a click in it gives it the keyboard.
     var isExpanded = false
 
+    /// While set, the panel can't become key, so the keyboard it hands back (see
+    /// `KeyboardHandbackPanel`) doesn't come straight back to it.
+    var refusesKey = false
+
     /// Where the panel's shape is, or is heading, on screen.
     var panelOutline: EyeOutline?
 
@@ -85,7 +89,7 @@ final class EyePanel: NSPanel {
         fatalError("init(coder:) is not supported")
     }
 
-    override var canBecomeKey: Bool { true }
+    override var canBecomeKey: Bool { !refusesKey }
     override var canBecomeMain: Bool { false }
 
     /// A click in the expanded panel gives it the keyboard, also when it expanded on its own. A click
