@@ -34,7 +34,7 @@ extension QuestionRequest {
     /// The question the terminal is showing now; Claude asks several questions one after another.
     public func current(on screen: ScreenPrompt?) -> Question? {
         guard case .question(_, let text, _, _)? = screen else { return nil }
-        return questions.first { $0.question == text }
+        return questions.first { AnswerPlanner.isSameQuestion($0.question, text) }
     }
 }
 
@@ -126,7 +126,7 @@ public enum AnswerPlanner {
     /// Whether `question` is on screen with its "Type something" row `option` focused and still empty,
     /// so typed text goes into that field and nowhere else.
     public static func isFreeTextFieldOpen(option: Int, question: String, on screen: ScreenPrompt?) -> Bool {
-        guard case .question(_, let text, _, _)? = screen, text == question,
+        guard case .question(_, let text, _, _)? = screen, isSameQuestion(text, question),
               let row = freeTextOption(on: screen)
         else { return false }
         return row.number == option && row.isCursor
@@ -164,6 +164,12 @@ public enum AnswerPlanner {
             }
         }
         return false
+    }
+
+    /// Whether two question texts are the same question, whole: the terminal wraps a long question at
+    /// its width, inside a word when the word is longer than a line, so all whitespace is ignored.
+    static func isSameQuestion(_ a: String, _ b: String) -> Bool {
+        squash(a) == squash(b)
     }
 
     private static func squash(_ text: String) -> String {

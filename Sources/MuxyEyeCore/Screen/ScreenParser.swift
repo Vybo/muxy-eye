@@ -32,10 +32,9 @@ public enum ScreenParser {
 
         if let headerIndex {
             let header = headerText(block[headerIndex])
-            let question = block[(headerIndex + 1)...].map(trimmed).first { !$0.isEmpty } ?? ""
             return .question(
                 header: header,
-                question: question,
+                question: questionText(block[(headerIndex + 1)..<firstInBlock]),
                 options: options,
                 isMultiSelect: options.contains { $0.checked != nil }
             )
@@ -113,6 +112,19 @@ public enum ScreenParser {
         var text = String(line[(marker + 1)...])
         if let range = text.range(of: "  ") { text = String(text[..<range.lowerBound]) }
         return text.trimmingCharacters(in: .whitespaces)
+    }
+
+    /// The question between its header and its options, line by line as the terminal draws it. A
+    /// question longer than one line has a `│` gutter on every line, blank and wrapped ones too, so
+    /// none of its lines can pass for an option; the gutter is dropped.
+    private static func questionText(_ lines: ArraySlice<[Character]>) -> String {
+        lines.map { line in
+            var text = line.drop { $0 == " " }
+            if text.first == "│" { text = text.dropFirst() }
+            return String(text).trimmingCharacters(in: .whitespaces)
+        }
+        .joined(separator: "\n")
+        .trimmingCharacters(in: .newlines)
     }
 
     private static func optionLine(_ line: [Character]) -> OptionLine? {

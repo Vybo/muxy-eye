@@ -88,6 +88,50 @@ import Testing
         #expect(body.contains("rm spike-ok.txt"))
     }
 
+    // MARK: Questions over several lines
+
+    @Test func parsesQuestionWithParagraphs() throws {
+        guard case .question(let header, let question, let options, let multi) = ScreenParser.parse(try screen("question-multiline")) else { Issue.record("no prompt"); return }
+        #expect(header == "Next fixes")
+        #expect(question == [
+            "Plan for the next fixes. This question is long and has several paragraphs on purpose, so I can capture how the terminal draws it for the matching fix (the eye will show no",
+            "options for it yet).",
+            "",
+            "Flash: closing hides the panel's window and shows it again to give the keyboard back to your other app. That is why the panel and the eye vanish for a moment. The fix hands",
+            "the keyboard back through an invisible helper window instead, so the visible window never leaves the screen.",
+            "",
+            "Questions: the eye will compare a question with all of its lines on the screen, ignoring where the terminal wraps them, instead of with only the first line.",
+            "",
+            "After that, a tall prompt with a one-line question to test the scrolling. Go ahead?"
+        ].joined(separator: "\n"))
+        #expect(multi == false)
+        #expect(options.map(\.label) == ["Go ahead", "Flash fix only", "Matching fix only", "Wait", "Type something.", "Chat about this"])
+        #expect(options[0].description == "Fix both the close flash and the question matching, then build build-next3 and send the scroll test prompt.")
+        #expect(options[0].isCursor)
+    }
+
+    @Test func parsesWrappedQuestion() throws {
+        guard case .question(let header, let question, let options, let multi) = ScreenParser.parse(try screen("question-wrapped")) else { Issue.record("no prompt"); return }
+        #expect(header == "Capture")
+        #expect(question == [
+            "Capture only, no decision needed: this is one long paragraph without line breaks, so the terminal has to wrap it, and it has **bold text** and `inline code` in it to see",
+            "whether the terminal draws the markdown or shows the asterisks and backticks as they are; in the eye this question will show without options until the matching fix lands. Pick",
+            "any option."
+        ].joined(separator: "\n"))
+        #expect(multi == false)
+        #expect(options.map(\.label) == ["Done", "Eye shows raw marks", "Type something.", "Chat about this"])
+        #expect(options[1].description == "The eye's panel shows the asterisks or backticks instead of bold and code.")
+    }
+
+    @Test func questionLinesShapedLikeOptionsAreNotOptions() throws {
+        let s = try screen("question-multiline").replacingOccurrences(of: "│ Questions: the eye", with: "│ 1. step one\n│ 2. step two\n│ Questions: the eye")
+        guard case .question(_, let question, let options, _) = ScreenParser.parse(s) else { Issue.record("no prompt"); return }
+        #expect(options.map(\.number) == [1, 2, 3, 4, 5, 6])
+        #expect(options[0].label == "Go ahead")
+        #expect(options[0].isCursor)
+        #expect(question.contains("\n1. step one\n2. step two\nQuestions: the eye"))
+    }
+
     // MARK: Idle prompt and the cursor
 
     func suggestion() throws -> (text: String, row: Int, col: Int) {

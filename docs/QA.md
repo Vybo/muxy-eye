@@ -11,6 +11,7 @@ These checks cover what the unit tests can't: the window, focus, displays, and t
   - an approval: "Use the Bash tool to run exactly: touch qa-1.txt";
   - a question: "Use the AskUserQuestion tool to ask me one single-select question with three options";
   - a multi-select question: the same, with "multi-select";
+  - long questions: the same, with a question of three short paragraphs, or of one paragraph long enough that the terminal wraps it;
   - a finished turn: any short request.
 
 ## The collapsed eye
@@ -171,6 +172,10 @@ Settings → **Panel opens**. Check each side with the eye moved to the middle o
   - [ ] "Chat about this" is not offered;
   - [ ] clicking an option answers it;
   - [ ] free text plus Return answers it too.
+- [ ] **Long questions:** a question with several paragraphs, and a one-paragraph question long enough that the terminal wraps it over several lines:
+  - [ ] each shows its options in the panel, as a one-line question does;
+  - [ ] clicking an option answers it;
+  - [ ] a digit key answers it too.
 - [ ] **Multi-select question:**
   - [ ] the panel shows checkboxes, and Submit stays disabled until something is ticked;
   - [ ] ticking with `1` and with a click types nothing into the terminal (it still shows `[ ]`);

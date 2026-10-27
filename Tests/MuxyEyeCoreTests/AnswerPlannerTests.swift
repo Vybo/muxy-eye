@@ -171,4 +171,80 @@ import Testing
         let s = try screen("permission-bash", replacing: "4. No", with: "4. Maybe")
         #expect(AnswerPlanner.steps(for: .deny(feedback: "x"), pending: try pending("permission-request-bash"), screen: s, idlePrompt: false) == .failure(.noMatchingOption))
     }
+
+    // MARK: Questions over several lines
+
+    func pending(_ questions: Question...) -> PendingItem {
+        PendingItem(kind: .question(QuestionRequest(questions: questions)), receivedAt: .now, sawBlocked: false)
+    }
+
+    /// `name` with the question's lines above the one containing `marker` gone, as if Claude had
+    /// drawn only the end of the question below its header.
+    func screen(_ name: String, questionFrom marker: String) throws -> ScreenPrompt? {
+        let lines = try Fixture.text("screens/\(name).txt").components(separatedBy: "\n")
+        let first = try #require(lines.firstIndex { $0.hasPrefix("│") })
+        let kept = try #require(lines.firstIndex { $0.contains(marker) })
+        #expect(kept > first)
+        return ScreenParser.parse((lines[..<first] + lines[kept...]).joined(separator: "\n"))
+    }
+
+    @Test func questionWithParagraphsMatches() throws {
+        let s = try screen("question-multiline")
+        let p = pending(Fixture.multilineQuestion)
+        #expect(AnswerPlanner.matches(p, screen: s, idlePrompt: false))
+        #expect(AnswerPlanner.steps(for: .option(2), pending: p, screen: s, idlePrompt: false) == .success([.text("2")]))
+    }
+
+    @Test func wrappedQuestionMatches() throws {
+        let s = try screen("question-wrapped")
+        let p = pending(Fixture.wrappedQuestion)
+        #expect(AnswerPlanner.matches(p, screen: s, idlePrompt: false))
+        #expect(AnswerPlanner.steps(for: .option(1), pending: p, screen: s, idlePrompt: false) == .success([.text("1")]))
+    }
+
+    @Test func questionBrokenInsideAWordMatches() throws {
+        // A word longer than the line, such as a URL, is broken where the line ends.
+        let s = try screen("question-wrapped", replacing: " to see\n│ whether ", with: " to see whe\n│ ther ")
+        #expect(AnswerPlanner.matches(pending(Fixture.wrappedQuestion), screen: s, idlePrompt: false))
+    }
+
+    @Test func currentQuestionMatchesALongQuestionOnScreen() throws {
+        guard case .question(let color) = try pending("pre-tool-use-question-single").kind else { Issue.record("not question"); return }
+        let request = QuestionRequest(questions: color.questions + [Fixture.multilineQuestion, Fixture.wrappedQuestion])
+        #expect(request.current(on: try screen("question-multiline"))?.header == "Next fixes")
+        #expect(request.current(on: try screen("question-wrapped"))?.header == "Capture")
+        #expect(request.current(on: try screen("question-single"))?.header == "Color")
+    }
+
+    @Test func longQuestionDifferingByAWordDoesNotMatch() throws {
+        let multiline = try screen("question-multiline", replacing: "an invisible helper window", with: "a hidden helper window")
+        #expect(!AnswerPlanner.matches(pending(Fixture.multilineQuestion), screen: multiline, idlePrompt: false))
+        let wrapped = try screen("question-wrapped", replacing: "**bold text**", with: "**bold words**")
+        #expect(!AnswerPlanner.matches(pending(Fixture.wrappedQuestion), screen: wrapped, idlePrompt: false))
+        #expect(AnswerPlanner.steps(for: .option(1), pending: pending(Fixture.wrappedQuestion), screen: wrapped, idlePrompt: false) == .failure(.promptChanged))
+    }
+
+    @Test func longQuestionWithoutItsFirstLinesDoesNotMatch() throws {
+        let multiline = try screen("question-multiline", questionFrom: "Flash: closing hides")
+        guard case .question(let header, _, _, _)? = multiline else { Issue.record("no prompt"); return }
+        #expect(header == "Next fixes")
+        #expect(!AnswerPlanner.matches(pending(Fixture.multilineQuestion), screen: multiline, idlePrompt: false))
+        let wrapped = try screen("question-wrapped", questionFrom: "whether the terminal draws")
+        #expect(!AnswerPlanner.matches(pending(Fixture.wrappedQuestion), screen: wrapped, idlePrompt: false))
+        #expect(AnswerPlanner.steps(for: .option(1), pending: pending(Fixture.wrappedQuestion), screen: wrapped, idlePrompt: false) == .failure(.promptChanged))
+    }
+
+    @Test func longQuestionScrolledOffTheTopDoesNotMatch() throws {
+        // Taller than the terminal, the prompt loses its top lines: the rule and header first.
+        let text = try Fixture.text("screens/question-multiline.txt")
+        let lines = text.components(separatedBy: "\n")
+        let cut = try #require(lines.firstIndex { $0.contains("Flash: closing hides") })
+        let s = ScreenParser.parse(lines[cut...].joined(separator: "\n"))
+        #expect(!AnswerPlanner.matches(pending(Fixture.multilineQuestion), screen: s, idlePrompt: false))
+    }
+
+    @Test func longQuestionLabelMismatchDoesNotMatch() throws {
+        let s = try screen("question-multiline", replacing: "2. Flash fix only", with: "2. Flash fix first")
+        #expect(!AnswerPlanner.matches(pending(Fixture.multilineQuestion), screen: s, idlePrompt: false))
+    }
 }

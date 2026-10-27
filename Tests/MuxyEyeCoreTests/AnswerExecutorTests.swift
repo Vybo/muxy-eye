@@ -256,4 +256,49 @@ import Testing
         #expect(outcome == .notConfirmed)
         #expect(await sends(muxy) == ["send:s1:1", "send:s1:\u{1B}[C", "send:s1:1"])
     }
+
+    // MARK: Questions over several lines
+
+    func multiline() throws -> String { try Fixture.text("screens/question-multiline.txt") }
+
+    /// The question with paragraphs as a narrower terminal draws it: its first line breaks a word earlier.
+    func rewrapped(_ screen: String) -> String {
+        let narrower = screen.replacingOccurrences(of: " will show no\n│ options ", with: " will show\n│ no options ")
+        #expect(narrower != screen)
+        return narrower
+    }
+
+    @Test func questionWithParagraphsIsAnswered() async throws {
+        let muxy = FakeMuxy()
+        await muxy.setScreens([try multiline()])
+        await muxy.setActivity([snapshot(.working)])
+        let pending = PendingItem(kind: .question(QuestionRequest(questions: [Fixture.multilineQuestion])), receivedAt: .now, sawBlocked: true)
+        let outcome = await makeExecutor(muxy).perform(.option(2), pending: pending, session: session)
+        #expect(outcome == .delivered)
+        #expect(await sends(muxy) == ["send:s1:2"])
+    }
+
+    @Test func freeTextOnAQuestionWithParagraphsWaitsForItsTextField() async throws {
+        let muxy = FakeMuxy()
+        let field = rewrapped(try multiline())
+            .replacingOccurrences(of: "❯ 1. Go ahead", with: "  1. Go ahead")
+            .replacingOccurrences(of: "  5. Type something.", with: "❯ 5. Type something.")
+        await muxy.setScreens([try multiline(), try multiline(), field])
+        await muxy.setActivity([snapshot(.working)])
+        let pending = PendingItem(kind: .question(QuestionRequest(questions: [Fixture.multilineQuestion])), receivedAt: .now, sawBlocked: true)
+        let outcome = await makeExecutor(muxy).perform(.freeText("Later"), pending: pending, session: session)
+        #expect(outcome == .delivered)
+        #expect(await sends(muxy) == ["send:s1:5", "send:s1:Later", "sendKey:s1:Enter"])
+    }
+
+    @Test func questionWithParagraphsDrawnNarrowerIsNotTakenForTheNextQuestion() async throws {
+        let muxy = FakeMuxy()
+        await muxy.setScreens([try multiline(), rewrapped(try multiline())])
+        await muxy.setActivity([snapshot(.blocked)])
+        let request = QuestionRequest(questions: [Fixture.multilineQuestion, Fixture.wrappedQuestion])
+        let pending = PendingItem(kind: .question(request), receivedAt: .now, sawBlocked: true)
+        let outcome = await makeExecutor(muxy, timeout: .milliseconds(300)).perform(.option(1), pending: pending, session: session)
+        #expect(outcome == .notConfirmed)
+        #expect(await sends(muxy) == ["send:s1:1"])
+    }
 }

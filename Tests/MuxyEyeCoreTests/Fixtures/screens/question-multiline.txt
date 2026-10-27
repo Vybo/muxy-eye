@@ -1,0 +1,26 @@
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ ☐ Next fixes
+
+│ Plan for the next fixes. This question is long and has several paragraphs on purpose, so I can capture how the terminal draws it for the matching fix (the eye will show no
+│ options for it yet).
+│
+│ Flash: closing hides the panel's window and shows it again to give the keyboard back to your other app. That is why the panel and the eye vanish for a moment. The fix hands
+│ the keyboard back through an invisible helper window instead, so the visible window never leaves the screen.
+│
+│ Questions: the eye will compare a question with all of its lines on the screen, ignoring where the terminal wraps them, instead of with only the first line.
+│
+│ After that, a tall prompt with a one-line question to test the scrolling. Go ahead?
+
+❯ 1. Go ahead
+     Fix both the close flash and the question matching, then build build-next3 and send the scroll test prompt.
+  2. Flash fix only
+     Fix only the close flash for now; leave the question matching as it is.
+  3. Matching fix only
+     Fix only the question matching for now; leave the close flash as it is.
+  4. Wait
+     Don't change anything yet.
+  5. Type something.
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  6. Chat about this
+
+Enter to select · ↑/↓ to navigate · Esc to cancel

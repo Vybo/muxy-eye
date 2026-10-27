@@ -131,7 +131,7 @@ public actor AnswerExecutor {
 
     private func screenMovedPast(_ question: String, session: MuxySessionID) async throws -> Bool {
         switch ScreenParser.parse(try await muxy.readScreenState(session).text) {
-        case .question(_, let text, _, _)?: text != question
+        case .question(_, let text, _, _)?: !AnswerPlanner.isSameQuestion(text, question)
         case .submitReview?: true
         default: false
         }

@@ -1,0 +1,16 @@
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ ☐ Capture
+
+│ Capture only, no decision needed: this is one long paragraph without line breaks, so the terminal has to wrap it, and it has **bold text** and `inline code` in it to see
+│ whether the terminal draws the markdown or shows the asterisks and backticks as they are; in the eye this question will show without options until the matching fix lands. Pick
+│ any option.
+
+❯ 1. Done
+     Nothing happens; the screen was captured.
+  2. Eye shows raw marks
+     The eye's panel shows the asterisks or backticks instead of bold and code.
+  3. Type something.
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  4. Chat about this
+
+Enter to select · ↑/↓ to navigate · Esc to cancel
